@@ -1,0 +1,49 @@
+# requirements.txt
+
+# --- Core Environment & Utilities ---
+python-dotenv         # Environment variable management
+requests              # HTTP library for API interactions
+pyyaml                # YAML parsing for configurations
+tqdm                  # Progress bars for long-running scripts (Data/Uploads)
+
+# --- Google Drive API Integration ---
+google-api-python-client
+google-auth-httplib2
+google-auth-oauthlib
+
+# --- Data Science & AI (The Engine) ---
+numpy
+pandas
+scipy
+scikit-learn          # For scaling and basic ML
+statsmodels           # For detailed statistical analysis (OLS Regression)
+
+# --- Visualization & Analysis ---
+matplotlib
+seaborn               # Advanced statistical plotting
+
+# --- Excel & Format Support ---
+xlrd >= 2.0.1         # Support for old .xls files
+openpyxl >= 3.1.0     # MANDATORY for our DataIngestor and GDrive Exports
+
+# --- Machine Learning Persistence ---
+joblib                # Essential for export_model_artifacts
+
+# --- Testing & Notebook Automation ---
+pytest                # Framework for all automation tests
+nbclient              # Running notebooks programmatically
+nbformat              # Notebook file format support
+
+# --- Jupyter & Interactive Lab (AI-Lab Core) ---
+jupyterlab
+notebook
+ipykernel             # Required for IntelliJ/Jupyter to run kernels
+ipywidgets            # Interactive UI components for notebooks
+
+# --- Quality, Security & DX (The Shield) ---
+ruff                  # Modern Linter & Formatter (replaces black and isort)
+bandit                # Static analysis for security vulnerabilities
+pip-audit             # Dependency vulnerability scanner
+pre-commit            # Git hooks for automated quality checks
+nbqa                  # Run ruff/bandit on Jupyter Notebooks
+mdformat-gfm          # Markdown formatter for GitHub flavor

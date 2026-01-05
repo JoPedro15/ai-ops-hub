@@ -1,9 +1,20 @@
-cat <<EOF > .gitignore
-.venv/
+# Python internals
 __pycache__/
 *.py[cod]
-*$py.class
-.DS_Store
+*.class
+.venv/
+.pytest_cache/
+.ruff_cache/
+build/
+dist/
+*.egg-info/
+
+# Logs & Data
+logs/
+data/
 .env
-.ipynb_checkpoints/
-EOF
+
+# IDEs
+.idea/
+.vscode/
+.DS_Store
