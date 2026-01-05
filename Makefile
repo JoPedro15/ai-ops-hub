@@ -75,6 +75,8 @@ health-check:
 # --- Security & Testing ---
 
 security:
+	@echo "Running security audit..."
+	$(PIP) install --upgrade pip pip-audit
 	$(AUDIT) --skip-editable --ignore-vuln CVE-2025-53000
 
 test-all:
