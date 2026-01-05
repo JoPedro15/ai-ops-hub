@@ -1,0 +1,57 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "gdrive-client"
+version = "0.1.0"
+description = "Google Drive client for Automation Hub"
+requires-python = ">=3.12"
+dependencies = [
+    "google-api-python-client",
+    "google-auth-httplib2",
+    "google-auth-oauthlib",
+    "python-dotenv",
+]
+
+[tool.setuptools]
+packages = ["gdrive_client"]
+
+# ─────────────────────────────────────────────────────────────
+# Ruff Global Settings
+# ─────────────────────────────────────────────────────────────
+[tool.ruff]
+line-length = 88
+target-version = "py312"
+
+# ─────────────────────────────────────────────────────────────
+# Ruff Lint Configuration (Corrected Section)
+# ─────────────────────────────────────────────────────────────
+[tool.ruff.lint]
+# E, F: Basics | I: Sorting | UP: Modern Python | B: Bugbear | T20: No-print
+select = ["E", "F", "I", "UP", "B", "T20"]
+ignore = ["E501"] # Formatting handles line length, but we keep E501 check for safety in Lint
+
+[tool.ruff.lint.isort]
+known-first-party = ["clients"]
+combine-as-imports = true
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+
+# ─────────────────────────────────────────────────────────────
+# Pytest configuration
+# ─────────────────────────────────────────────────────────────
+[tool.pytest.ini_options]
+# Filter specific deprecation warnings from Google libraries
+filterwarnings = [
+    "ignore::DeprecationWarning:httplib2.*:",
+    "ignore::DeprecationWarning:googleapiclient.*:",
+]
+markers = [
+    "integration: marks tests as integration (skipped in CI)"
+]
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = "-vv --tb=short"

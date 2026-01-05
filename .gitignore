@@ -2,8 +2,15 @@ cat <<EOF > .gitignore
 .venv/
 __pycache__/
 *.py[cod]
-*$py.class
+*\$py.class
 .DS_Store
 .env
 .ipynb_checkpoints/
+.pytest_cache/
+.ruff_cache/
+
+# Google Cloud & Token Secrets
+data/credentials.json
+data/token.json
+data/*.json
 EOF
