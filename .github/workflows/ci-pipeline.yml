@@ -37,9 +37,11 @@ jobs:
 
       - name: Initialize Mock Infrastructure Files
         run: |
-          mkdir -p infra/gdrive/data data/logs
+          mkdir -p infra/gdrive/data data/logs clients/gdrive/data
           echo '{}' > infra/gdrive/data/credentials.json
           echo '{}' > infra/gdrive/data/settings.json
+          echo '{}' > clients/gdrive/data/credentials.json
+          echo '{}' > infra/gdrive/data/token.json
 
       - name: Lint & Static Analysis
         # Logic errors and code smells via Ruff
@@ -58,6 +60,12 @@ jobs:
         run: |
           source .venv/bin/activate
           ruff check . --select S
+
+      - name: Initialize Dummy Configs
+        run: |
+          mkdir -p infra/gdrive/data data/logs
+          echo '{}' > infra/gdrive/data/credentials.json
+          echo '{}' > infra/gdrive/data/settings.json
 
       - name: Infrastructure Health
         # Validates internal module mapping
@@ -114,11 +122,10 @@ jobs:
           make setup CI=true
 
       - name: Initialize Credentials
-        # Injects secrets into the new modular path
         run: |
-          mkdir -p infra/gdrive/data
-          echo '${{ secrets.GOOGLE_CREDENTIALS_JSON }}' > infra/gdrive/data/credentials.json
-
+          mkdir -p data
+          echo '${{ secrets.GOOGLE_CREDENTIALS_JSON }}' > data/credentials.json
+          echo '${{ secrets.GOOGLE_TOKEN_JSON }}' > data/token.json
       - name: Run GDrive Unit Tests
         env:
           PYTHONPATH: ${{ github.workspace }}

@@ -18,3 +18,6 @@ data/
 .idea/
 .vscode/
 .DS_Store
+# Ignorar ficheiros de autenticação na pasta /data
+data/*.json
+!data/.gitkeep

@@ -261,3 +261,20 @@ class GDriveService:
                 logger.error(f"Failed to delete file {fid}: {str(e)}")
 
         return deleted_ids
+
+
+if __name__ == "__main__":
+    try:
+        logger.info("Starting GDrive Service Test...")
+        gdrive = GDriveService()
+
+        logger.success("Connection established! Listing last 5 files:")
+        files = gdrive.list_files(limit=5)
+
+        if not files:
+            logger.info("Empty Drive (or folder).")
+        for f in files:
+            logger.info(f" - Found: {f['name']} (ID: {f['id']})")
+
+    except Exception as e:
+        logger.error(f"Test failed: {e}")
