@@ -7,24 +7,29 @@ VENV        := .venv
 CI          ?= false
 PYTHON_BIN  := python3.13
 ROOT        := $(shell pwd)
-PYTHON      := $(ROOT)/$(VENV)/bin/python3
 
-# Binary detection
+# Binary detection strategy
 ifeq ($(CI), true)
-    BIN :=
-    PY  := $(PYTHON_BIN)
+    PY  := python
     PIP := pip
 else
-    BIN := $(VENV)/bin/
-    PY  := $(BIN)python
-    PIP := $(BIN)pip
+    PY  := $(ROOT)/$(VENV)/bin/python
+    PIP := $(ROOT)/$(VENV)/bin/pip
 endif
 
-# Tooling
-RUFF    := $(BIN)ruff
-PRE     := $(BIN)pre-commit
-PYTEST  := $(BIN)pytest
-AUDIT   := $(BIN)pip-audit
+# Tooling paths (Local vs CI)
+ifeq ($(CI), true)
+    RUFF    := ruff
+    PRE     := pre-commit
+    PYTEST  := pytest
+    AUDIT   := pip-audit
+else
+    BIN     := $(ROOT)/$(VENV)/bin/
+    RUFF    := $(BIN)ruff
+    PRE     := $(BIN)pre-commit
+    PYTEST  := $(BIN)pytest
+    AUDIT   := $(BIN)pip-audit
+endif
 
 export PYTHONPATH := $(ROOT)
 
@@ -70,7 +75,7 @@ verify-env:
 
 health-check:
 	@echo ">>> [SYSTEM] Starting Infrastructure Health Check..."
-	@$(PY) -m infra.scripts.health_check
+	$(PY) -m infra.gdrive.service
 
 # --- Security & Testing ---
 
