@@ -1,16 +1,13 @@
-cat <<EOF > .gitignore
-.venv/
-__pycache__/
-*.py[cod]
-*\$py.class
-.DS_Store
-.env
-.ipynb_checkpoints/
-.pytest_cache/
-.ruff_cache/
+cat <<EOF >> .gitignore
 
-# Google Cloud & Token Secrets
-data/credentials.json
-data/token.json
-data/*.json
+# IDE - JetBrains (IntelliJ/PyCharm)
+.idea/
+
+# Python Build & Distribution
+build/
+dist/
+*.egg-info/
+
+# Pre-commit & Security
+.secrets.baseline
 EOF
