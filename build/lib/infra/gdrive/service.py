@@ -1,0 +1,269 @@
+from __future__ import annotations
+
+import io
+import os
+from pathlib import Path
+from typing import Any
+
+from googleapiclient.discovery import Resource, build
+from googleapiclient.http import MediaFileUpload, MediaIoBaseDownload
+
+from infra.common.logger import logger
+
+# Modular internal imports
+from infra.gdrive.auth import get_google_service_credentials
+
+
+class GDriveService:
+    """
+    Module to interact with Google Drive API v3.
+    This service handles authentication, file management, and advanced cleanup logic.
+    """
+
+    def __init__(
+        self,
+        credentials_path: str | None = None,
+        token_path: str | None = None,
+        output_folder_id: str | None = None,
+    ) -> None:
+        """
+        Initializes the service with path resolution and environment variable fallbacks.
+        """
+        # Resolve project root (from infra/gdrive/service.py to root/)
+        self.root_dir: Path = Path(__file__).parent.parent.parent.resolve()
+
+        # Path Resolution Strategy: Arg > Env > Project Default
+        self.credentials_path: str = (
+            credentials_path
+            or os.getenv("GDRIVE_CREDENTIALS_PATH")
+            or str(self.root_dir / "data" / "credentials.json")
+        )
+
+        self.token_path: str = (
+            token_path
+            or os.getenv("GDRIVE_TOKEN_PATH")
+            or str(self.root_dir / "data" / "token.json")
+        )
+
+        # Output folder for default operations
+        self.output_folder_id: str | None = output_folder_id or os.getenv(
+            "OUTPUT_FOLDER_ID"
+        )
+
+        # Ensure directory for auth artifacts exists
+        Path(self.token_path).parent.mkdir(parents=True, exist_ok=True)
+
+        self.scopes: list[str] = ["https://www.googleapis.com/auth/drive"]
+        self.service: Resource = self._init_service()
+
+    def _init_service(self) -> Resource:
+        """
+        Builds the authorized Google Drive API service resource.
+        """
+        if not os.path.exists(self.credentials_path):
+            logger.error(f"Credentials file not found at: {self.credentials_path}")
+            raise FileNotFoundError(
+                f"Missing Google credentials: {self.credentials_path}"
+            )
+
+        creds: Any = get_google_service_credentials(
+            self.credentials_path, self.token_path, self.scopes
+        )
+        return build("drive", "v3", credentials=creds)
+
+    def upload_file(
+        self, file_path: str, folder_id: str, overwrite: bool = True
+    ) -> str:
+        """
+        Uploads a file to a specific GDrive folder.
+        If overwrite is True, it replaces existing files with the same name.
+        """
+        file_name: str = os.path.basename(file_path)
+        media: MediaFileUpload = MediaFileUpload(file_path, resumable=True)
+
+        if overwrite:
+            query: str = (
+                f"name = '{file_name}' and '{folder_id}' in parents and trashed = false"
+            )
+            response: dict[str, Any] = (
+                self.service.files().list(q=query, fields="files(id)").execute()
+            )
+            existing_files: list[dict[str, str]] = response.get("files", [])
+
+            if existing_files:
+                file_id: str = existing_files[0]["id"]
+                logger.info(f"Overwriting file: {file_name} (ID: {file_id})")
+                updated_file = (
+                    self.service.files()
+                    .update(fileId=file_id, media_body=media)
+                    .execute()
+                )
+                return str(updated_file.get("id"))
+
+        file_metadata: dict[str, Any] = {"name": file_name, "parents": [folder_id]}
+        logger.info(f"Creating new file: {file_name}")
+        new_file = (
+            self.service.files()
+            .create(body=file_metadata, media_body=media, fields="id")
+            .execute()
+        )
+
+        return str(new_file.get("id"))
+
+    def file_exists(self, file_name: str, folder_id: str) -> bool:
+        """
+        Verifies if a file exists within a specific folder.
+        """
+        query: str = (
+            f"name = '{file_name}' and '{folder_id}' in parents and trashed = false"
+        )
+        results: dict[str, Any] = (
+            self.service.files()
+            .list(q=query, spaces="drive", fields="files(id)")
+            .execute()
+        )
+
+        return len(results.get("files", [])) > 0
+
+    def _fetch_files(
+        self, query: str, fields: str = "id, name"
+    ) -> list[dict[str, str]]:
+        """
+        Internal helper to fetch all files matching a query with pagination support.
+        """
+        all_files: list[dict[str, str]] = []
+        page_token: str | None = None
+
+        while True:
+            results: dict[str, Any] = (
+                self.service.files()
+                .list(
+                    q=query,
+                    fields=f"nextPageToken, files({fields})",
+                    pageToken=page_token,
+                    spaces="drive",
+                )
+                .execute()
+            )
+
+            all_files.extend(results.get("files", []))
+            page_token = results.get("nextPageToken")
+            if not page_token:
+                break
+
+        return all_files
+
+    def download_file(self, file_id: str, local_path: str) -> None:
+        """
+        Downloads a file. Supports standard binary files and Google Editor exports.
+        """
+        file_metadata: dict[str, Any] = (
+            self.service.files().get(fileId=file_id, fields="mimeType, name").execute()
+        )
+
+        mime_type: str = file_metadata.get("mimeType", "")
+        logger.info(f"Downloading {file_metadata.get('name')} (MIME: {mime_type})")
+
+        if "vnd.google-apps" in mime_type:
+            # Export Google Sheets to XLSX for Data Science compatibility
+            export_mime: str = (
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            )
+            request = self.service.files().export_media(
+                fileId=file_id, mimeType=export_mime
+            )
+        else:
+            request = self.service.files().get_media(fileId=file_id)
+
+        fh = io.FileIO(local_path, "wb")
+        downloader: MediaIoBaseDownload = MediaIoBaseDownload(fh, request)
+        done: bool = False
+        while not done:
+            status, done = downloader.next_chunk()
+            if status:
+                logger.info(f"Download Progress: {int(status.progress() * 100)}%")
+
+        logger.success(f"File saved to: {local_path}")
+
+    def list_files(
+        self, folder_id: str | None = None, limit: int = 10
+    ) -> list[dict[str, str]]:
+        """
+        Lists files in a specific folder or the default output folder.
+        """
+        query: str = "trashed = false"
+        target_folder: str | None = folder_id or self.output_folder_id
+
+        if target_folder:
+            query += f" and '{target_folder}' in parents"
+
+        results: dict[str, Any] = (
+            self.service.files()
+            .list(q=query, spaces="drive", fields="files(id, name)", pageSize=limit)
+            .execute()
+        )
+
+        return results.get("files", [])
+
+    def _list_and_delete(self, query: str) -> list[str]:
+        """
+        Fetches files matching a query and deletes them permanently.
+        """
+        files_to_delete: list[dict[str, str]] = self._fetch_files(query)
+        deleted_ids: list[str] = []
+
+        for f in files_to_delete:
+            self.service.files().delete(fileId=f["id"]).execute()
+            deleted_ids.append(f["id"])
+            logger.success(f"Permanently deleted: {f['name']} ({f['id']})")
+
+        return deleted_ids
+
+    def delete_specific_file(self, file_name: str, folder_id: str) -> bool:
+        """
+        Deletes a specific file by name within a folder.
+        """
+        query: str = (
+            f"name = '{file_name}' and '{folder_id}' in parents and trashed = false"
+        )
+        deleted: list[str] = self._list_and_delete(query)
+        return len(deleted) > 0
+
+    def clear_folder_content(self, folder_id: str) -> list[str]:
+        """
+        Clears all contents of a specific folder.
+        """
+        if not folder_id:
+            logger.warning("No folder_id provided for clearing content.")
+            return []
+
+        query: str = f"'{folder_id}' in parents and trashed = false"
+        return self._list_and_delete(query)
+
+    def delete_files_by_prefix(self, folder_id: str, file_prefix: str) -> list[str]:
+        """
+        Deletes files matching a specific prefix within a folder.
+        Uses server-side 'contains' and client-side 'startswith' for precision.
+        """
+        if not folder_id or not file_prefix:
+            logger.warning("Prefix or Folder ID missing for deletion.")
+            return []
+
+        query: str = f"'{folder_id}' in parents and name contains '{file_prefix}' and trashed = false"
+        files_found: list[dict[str, str]] = self._fetch_files(query)
+
+        # Precise filtering to avoid partial matches
+        file_ids_to_delete: list[str] = [
+            f["id"] for f in files_found if f["name"].startswith(file_prefix)
+        ]
+
+        deleted_ids: list[str] = []
+        for fid in file_ids_to_delete:
+            try:
+                self.service.files().delete(fileId=fid).execute()
+                deleted_ids.append(fid)
+                logger.success(f"Deleted prefix match: {fid}")
+            except Exception as e:
+                logger.error(f"Failed to delete file {fid}: {str(e)}")
+
+        return deleted_ids
