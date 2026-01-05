@@ -1,13 +1,20 @@
-cat <<EOF >> .gitignore
-
-# IDE - JetBrains (IntelliJ/PyCharm)
-.idea/
-
-# Python Build & Distribution
+# Python internals
+__pycache__/
+*.py[cod]
+*.class
+.venv/
+.pytest_cache/
+.ruff_cache/
 build/
 dist/
 *.egg-info/
 
-# Pre-commit & Security
-.secrets.baseline
-EOF
+# Logs & Data
+logs/
+data/
+.env
+
+# IDEs
+.idea/
+.vscode/
+.DS_Store

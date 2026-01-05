@@ -1,0 +1,50 @@
+# AI-Ops Hub Pre-commit Configuration
+# Orchestrating quality for Infra (GDrive, Notion) and AI Lab (Notebooks)
+
+repos:
+  # --- Core Hygiene: Basic file integrity and standards ---
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+      - id: mixed-line-ending
+      - id: check-yaml
+      - id: check-ast
+      - id: check-merge-conflict
+      - id: check-added-large-files
+        args: [ '--maxkb=3000' ]
+
+  # --- Secret Detection: Preventing credential leaks (Crucial for GDrive) ---
+  - repo: https://github.com/Yelp/detect-secrets
+    rev: v1.5.0
+    hooks:
+      - id: detect-secrets
+        args: [ '--baseline', '.secrets.baseline' ]
+        exclude: .*/tests/.*|.*\.ipynb  # Avoiding false positives in tests/notebooks
+
+  # --- Ruff: Unified Linter, Formatter & Security (Native Notebook Support) ---
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.9.1  # Latest version optimized for Python 3.13
+    hooks:
+      - id: ruff
+        args: [ --fix, --exit-non-zero-on-fix ]
+      - id: ruff-format
+        # Ruff 0.9+ handles .ipynb automatically if configured in pyproject.toml
+
+  # --- Spelling Check: Preventing typos in code and documentation ---
+  - repo: https://github.com/codespell-project/codespell
+    rev: v2.4.1
+    hooks:
+      - id: codespell
+        args: [ --ignore-words-list=nd,ue,ody ]
+        # Updated paths: excluding new modules' artifacts
+        exclude: ^infra/.*\.egg-info/|^.venv/|^lab/notebooks/.*\.ipynb
+
+  # --- Documentation: Markdown formatting for high-quality READMEs ---
+  - repo: https://github.com/executablebooks/mdformat
+    rev: 0.7.22 # Stable version for mdformat core
+    hooks:
+      - id: mdformat
+        additional_dependencies: [ mdformat-gfm ]
+        types: [ markdown ]
