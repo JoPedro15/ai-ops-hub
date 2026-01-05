@@ -1,0 +1,100 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ai-ops-hub"
+version = "0.1.0"
+description = "Centralized AI Lab and Automation Infrastructure"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    # --- Core & Environment ---
+    "python-dotenv",
+    "requests",
+    "pyyaml",
+    "tqdm",
+    "rich",
+    # --- Google Drive API Integration ---
+    "google-api-python-client",
+    "google-auth-httplib2",
+    "google-auth-oauthlib",
+    # --- Data Science & AI (AI-Lab Support) ---
+    "numpy>=2.0.0",  # Optimized for Python 3.13
+    "pandas>=2.2.0",
+    "scipy>=1.13.0",
+    "matplotlib>=3.9.0",
+    "seaborn>=0.13.0",
+    "scikit-learn>=1.5.0",
+    "statsmodels",
+    "joblib>=1.4.0",
+    # --- Excel Engines ---
+    "openpyxl>=3.1.0",
+    "xlrd>=2.0.0",
+    # --- Quality Gates & Security ---
+    "bandit",
+    "pip-audit",
+    "ruff",
+    "detect-secrets",
+    # --- Testing & Notebook Automation ---
+    "pytest",
+    "nbclient",
+    "nbformat",
+    # --- Interactive Lab ---
+    "jupyterlab",
+    "notebook",
+    "ipykernel"
+]
+
+[tool.setuptools.packages.find]
+# Since we are using modules, we include the new core directories
+where = ["."]
+include = ["infra*", "lab*"]
+
+# --- UNIFIED QUALITY ENGINE (RUFF) ---
+[tool.ruff]
+target-version = "py313" # Optimized for Python 3.13
+line-length = 88
+exclude = [
+    ".git",
+    ".venv",
+    "build",
+    "dist",
+    "__pycache__",
+]
+
+[tool.ruff.lint]
+# E, F: Errors/Pyflakes | I: Isort | UP: Upgrade | B: Bugbear | T20: No-Print | S: Security | PT: Pytest
+select = ["E", "F", "I", "UP", "B", "T20", "S", "PT"]
+ignore = ["S101"] # Global ignore for S101 (asserts); overridden in tests
+
+[tool.ruff.lint.isort]
+combine-as-imports = true
+force-single-line = false
+known-first-party = ["infra", "lab"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+
+[tool.ruff.lint.extend-per-file-ignores]
+# Allow asserts in all test-related files
+"**/tests/**/*.py" = ["S101"]
+"**/test_*.py" = ["S101"]
+# Allow print only in the core logger module for terminal feedback (No-Print Rule)
+"infra/common/logger.py" = ["T201"]
+
+# --- TESTING FRAMEWORK (PYTEST) ---
+[tool.pytest.ini_options]
+filterwarnings = [
+    "ignore::DeprecationWarning:httplib2.*",
+    "ignore::DeprecationWarning:googleapiclient.*",
+    "ignore::DeprecationWarning:google.auth.*",
+]
+addopts = "--doctest-modules --strict-markers -v"
+markers = [
+    "integration: marks tests as integration tests (requires API access)",
+    "unit: marks tests as unit tests",
+]
+pythonpath = ["."]
+testpaths = ["infra", "lab"]

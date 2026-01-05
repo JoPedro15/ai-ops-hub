@@ -1,0 +1,81 @@
+# automation-hub/.github/workflows/infrastructure-health.yml
+name: Infrastructure Health Check
+
+on:
+  schedule:
+    - cron: '0 20 * * 5'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  quality-check:
+    name: Linting, Formatting & Security
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Install Tools & Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          make update-deps CI=true
+          pip install ruff pip-audit
+
+      - name: Ruff Lint & Format Check
+        run: |
+          ruff check .
+          ruff format . --check
+
+      - name: Security SAST
+        run: ruff check . --select S
+
+      - name: Dependency Audit
+        run: make security CI=true
+
+  global-health-check:
+    name: Automated Integration Health
+    needs: quality-check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Initialize & Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          make update-deps CI=true
+
+      - name: Execute Health Diagnostics
+        env:
+          GDRIVE_CREDENTIALS_DATA: ${{ secrets.GDRIVE_CREDENTIALS_JSON }}
+          GDRIVE_TOKEN_DATA: ${{ secrets.GDRIVE_TOKEN_JSON }}
+          GDRIVE_CREDENTIALS_PATH: "clients/gdrive/data/credentials.json"
+          GDRIVE_TOKEN_PATH: "clients/gdrive/data/token.json"
+          LOG_LEVEL: "INFO"
+          LOG_FILE_PATH: "data/logs/infrastructure.log"
+          PYTHONPATH: ${{ github.workspace }}:${{ github.workspace }}/clients/ai_utils
+        run: |
+          mkdir -p clients/gdrive/data data/logs
+
+          printf "%s" "$GDRIVE_CREDENTIALS_DATA" > "$GDRIVE_CREDENTIALS_PATH"
+          printf "%s" "$GDRIVE_TOKEN_DATA" > "$GDRIVE_TOKEN_PATH"
+
+          # Pre-flight Check
+          python3 -c "import json; [json.load(open(f)) for f in ['$GDRIVE_CREDENTIALS_PATH', '$GDRIVE_TOKEN_PATH']]"
+
+          make health CI=true PYTHON=python3
