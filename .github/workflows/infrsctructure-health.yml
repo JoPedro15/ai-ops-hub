@@ -78,4 +78,4 @@ jobs:
           # Pre-flight Check
           python3 -c "import json; [json.load(open(f)) for f in ['$GDRIVE_CREDENTIALS_PATH', '$GDRIVE_TOKEN_PATH']]"
 
-          make health CI=true PYTHON=python3
+          make health-check CI=true PYTHON=python3
