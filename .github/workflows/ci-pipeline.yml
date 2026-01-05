@@ -35,6 +35,12 @@ jobs:
           source .venv/bin/activate
           make setup CI=true
 
+      - name: Initialize Mock Infrastructure Files
+        run: |
+          mkdir -p infra/gdrive/data data/logs
+          echo '{}' > infra/gdrive/data/credentials.json
+          echo '{}' > infra/gdrive/data/settings.json
+
       - name: Lint & Static Analysis
         # Logic errors and code smells via Ruff
         run: |
