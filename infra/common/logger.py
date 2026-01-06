@@ -2,7 +2,12 @@ from __future__ import annotations
 
 import sys
 from datetime import datetime
+from pathlib import Path
 from typing import Final
+
+from config import DATA_DIR
+
+LOG_FILE: Path = DATA_DIR / "logs" / "infrastructure.log"
 
 
 class Logger:
@@ -19,10 +24,27 @@ class Logger:
     _ENDC: Final[str] = "\033[0m"
     _BOLD: Final[str] = "\033[1m"
 
+    def __init__(self) -> None:
+        """Initializes the logger and ensures the log directory exists."""
+        try:
+            LOG_FILE.parent.mkdir(parents=True, exist_ok=True)
+        except Exception as e:
+            # Fallback for environments with restricted write permissions
+            print(f"WARNING: Could not create log directory: {e}")
+
     @staticmethod
     def _get_timestamp() -> str:
         """Returns current timestamp in YYYY-MM-DD HH:MM:SS format."""
         return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    def _write_to_file(self, level: str, message: str) -> None:
+        """Writes a plain-text entry to the log file (no ANSI colors)."""
+        try:
+            with open(LOG_FILE, "a", encoding="utf-8") as f:
+                f.write(f"[{self._get_timestamp()}] {level.upper()}: {message}\n")
+        except Exception:  # noqa: S110
+            # Silently fail file logging to avoid crashing the main process
+            pass
 
     def info(self, message: str) -> None:
         """Prints an information message."""
