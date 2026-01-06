@@ -5,83 +5,82 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "ai-ops-hub"
 version = "0.1.0"
-description = "Centralized AI Lab and Automation Infrastructure"
+description = "Centralized AI Lab Research and Infrastructure Automation Hub"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
     # --- Core & Environment ---
-    "python-dotenv",
-    "requests",
-    "pyyaml",
-    "tqdm",
-    "rich",
-    # --- Google Drive API Integration ---
-    "google-api-python-client",
-    "google-auth-httplib2",
-    "google-auth-oauthlib",
-    # --- Data Science & AI (AI-Lab Support) ---
-    "numpy>=2.0.0",  # Optimized for Python 3.13
+    "python-dotenv>=1.0.0",
+    "requests>=2.31.0",
+    "pyyaml>=6.0.1",
+    "tqdm>=4.66.0",
+    "rich>=13.7.0",
+    # --- Google Cloud & Drive API ---
+    "google-api-python-client>=2.110.0",
+    "google-auth-httplib2>=0.2.0",
+    "google-auth-oauthlib>=1.2.0",
+    # --- Data Science & ML Engine (AI-Lab Support) ---
+    "numpy>=2.0.0",       # Required for Python 3.13 stability
     "pandas>=2.2.0",
     "scipy>=1.13.0",
+    "scikit-learn>=1.5.0",
+    "statsmodels>=0.14.0",
+    "joblib>=1.4.0",
+    # --- Visualization ---
     "matplotlib>=3.9.0",
     "seaborn>=0.13.0",
-    "scikit-learn>=1.5.0",
-    "statsmodels",
-    "joblib>=1.4.0",
     # --- Excel Engines ---
     "openpyxl>=3.1.0",
-    "xlrd>=2.0.0",
-    # --- Quality Gates & Security ---
-    "bandit",
-    "pip-audit",
-    "ruff",
-    "detect-secrets",
+    "xlrd>=2.0.1",
+    # --- Quality, Security & Formatting ---
+    "ruff>=0.4.0",
+    "bandit>=1.7.0",
+    "pip-audit>=2.7.0",
+    "detect-secrets>=1.5.0",
+    "nbqa>=1.8.0",
+    "mdformat-gfm>=0.3.5",
     # --- Testing & Notebook Automation ---
-    "pytest",
-    "nbclient",
-    "nbformat",
-    # --- Interactive Lab ---
+    "pytest>=8.1.0",
+    "nbclient>=0.10.0",
+    "nbformat>=5.10.0",
+    # --- Interactive Lab Environment ---
     "jupyterlab",
     "notebook",
-    "ipykernel"
+    "ipykernel",
+    "ipywidgets"
 ]
 
 [tool.setuptools.packages.find]
-# Since we are using modules, we include the new core directories
 where = ["."]
-include = ["infra*", "lab*"]
+include = ["infra*", "lab*", "config.py"]
 
 # --- UNIFIED QUALITY ENGINE (RUFF) ---
 [tool.ruff]
-target-version = "py313" # Optimized for Python 3.13
+target-version = "py313"
 line-length = 88
-exclude = [
-    ".git",
-    ".venv",
-    "build",
-    "dist",
-    "__pycache__",
-]
+exclude = [".git", ".venv", "build", "dist", "__pycache__"]
 
 [tool.ruff.lint]
-# E, F: Errors/Pyflakes | I: Isort | UP: Upgrade | B: Bugbear | T20: No-Print | S: Security | PT: Pytest
+# E/F: Flakes/Errors | I: Isort | UP: Upgrade | B: Bugbear | T20: No-Print | S: Security | PT: Pytest
 select = ["E", "F", "I", "UP", "B", "T20", "S", "PT"]
-ignore = ["S101"] # Global ignore for S101 (asserts); overridden in tests
+ignore = ["S101"] # Global assert ignore (overridden per-file below)
 
 [tool.ruff.lint.isort]
 combine-as-imports = true
 force-single-line = false
-known-first-party = ["infra", "lab"]
+known-first-party = ["infra", "lab", "config"]
 
 [tool.ruff.format]
 quote-style = "double"
 indent-style = "space"
 
 [tool.ruff.lint.extend-per-file-ignores]
-# Allow asserts in all test-related files
+# 📓 Notebooks: Allow prints for training logs/viz and ignore security on experiments
+"*.ipynb" = ["T201", "S101"]
+# 🧪 Tests: Mandatory asserts for validation
 "**/tests/**/*.py" = ["S101"]
 "**/test_*.py" = ["S101"]
-# Allow print only in the core logger module for terminal feedback (No-Print Rule)
+# 📜 Logger: Explicitly allow print for terminal feedback
 "infra/common/logger.py" = ["T201"]
 
 # --- TESTING FRAMEWORK (PYTEST) ---
@@ -90,11 +89,15 @@ filterwarnings = [
     "ignore::DeprecationWarning:httplib2.*",
     "ignore::DeprecationWarning:googleapiclient.*",
     "ignore::DeprecationWarning:google.auth.*",
+    "ignore::UserWarning:pandas.*",
+    "ignore::FutureWarning",
 ]
 addopts = "--doctest-modules --strict-markers -v"
 markers = [
-    "integration: marks tests as integration tests (requires API access)",
+    "integration: marks tests as integration tests (requires API/Gdrive access)",
     "unit: marks tests as unit tests",
+    "training: marks model training tests (slow/heavy)",
+    "data_validation: marks data integrity checks",
 ]
 pythonpath = ["."]
 testpaths = ["infra", "lab"]

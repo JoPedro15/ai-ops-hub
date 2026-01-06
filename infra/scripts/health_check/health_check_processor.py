@@ -13,7 +13,7 @@ def verify_data_processor() -> bool:
     Performs smoke tests on: One-Hot Encoding and Missing Value handling.
     """
     try:
-        logger.info("Initializing Data Processor Smoke Test...")
+        logger.subsection("Initializing Data Processor Smoke Test...")
 
         # 1. Instantiate Service
         processor: DataProcessor = DataProcessor()

@@ -16,7 +16,7 @@ def verify_data_ingestor() -> bool:
     Checks: Dependencies, Path Integrity, and Cache Directory Permissions.
     """
     try:
-        logger.info("Checking Data Ingestor Dependencies...")
+        logger.subsection("Checking Data Ingestor Dependencies...")
 
         # 1. Dependency Smoke Test
         # Checking versions to ensure packages are correctly linked in the .venv
