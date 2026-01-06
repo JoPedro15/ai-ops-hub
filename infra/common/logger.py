@@ -26,10 +26,13 @@ class Logger:
 
     def __init__(self) -> None:
         """Initializes the logger and ensures the log directory exists."""
+        from config import DATA_DIR
+
+        self.log_file: Path = DATA_DIR / "logs" / "infrastructure.log"
+
         try:
-            LOG_FILE.parent.mkdir(parents=True, exist_ok=True)
+            self.log_file.parent.mkdir(parents=True, exist_ok=True)
         except Exception as e:
-            # Fallback for environments with restricted write permissions
             print(f"WARNING: Could not create log directory: {e}")
 
     @staticmethod
@@ -39,11 +42,14 @@ class Logger:
 
     def _write_to_file(self, level: str, message: str) -> None:
         """Writes a plain-text entry to the log file (no ANSI colors)."""
+        ts: str = self._get_timestamp()
+        # Splitting the line to satisfy Ruff E501 (< 88 chars)
+        log_entry: str = f"[{ts}] {level.upper()}: {message}\n"
+
         try:
-            with open(LOG_FILE, "a", encoding="utf-8") as f:
-                f.write(f"[{self._get_timestamp()}] {level.upper()}: {message}\n")
+            with open(self.log_file, "a", encoding="utf-8") as f:
+                f.write(log_entry)
         except Exception:  # noqa: S110
-            # Silently fail file logging to avoid crashing the main process
             pass
 
     def info(self, message: str) -> None:

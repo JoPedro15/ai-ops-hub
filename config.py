@@ -8,8 +8,7 @@ from typing import Final
 from infra.common import logger
 
 # Project Root Discovery
-# __file__ is config.py, so .parent is the root of ai-ops-hub
-ROOT_DIR: Final[Path] = Path(__file__).parent.absolute()
+ROOT_DIR = Path(__file__).parent
 
 # Centralized Data & Secrets
 # As requested, keeping auth files in /data at the root level
@@ -18,7 +17,7 @@ CREDS_PATH: Final[Path] = DATA_DIR / "credentials.json"
 TOKEN_PATH: Final[Path] = DATA_DIR / "token.json"
 
 # Infrastructure Settings
-LOG_FORMAT: Final[str] = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+LOG_FORMAT: str = "[{time}] {level}: {message}"
 
 # Google Drive specific folder ID from env vars
 OUTPUT_FOLDER_ID: Final[str | None] = os.getenv("OUTPUT_FOLDER_ID")
