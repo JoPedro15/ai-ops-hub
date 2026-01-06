@@ -3,10 +3,14 @@
 
 # --- Configuration ---
 SHELL       := /bin/bash
+.SHELLFLAGS := -ec
+
 VENV        := .venv
 CI          ?= false
 PYTHON_BIN  := python3.13
 ROOT        := $(shell pwd)
+
+.DELETE_ON_ERROR:
 
 # Binary detection strategy
 ifeq ($(CI), true)
@@ -40,7 +44,7 @@ help: ## Show this help message
 
 # --- Main Pipelines ---
 
-quality: clean
+quality: clean ## Run full quality gate
 	@echo ">>> [PIPELINE] Starting Full Quality Gate..."
 	@$(MAKE) lint-and-format
 	@echo ">>> [VALIDATION] Running Pre-commit Hooks..."
@@ -51,14 +55,14 @@ quality: clean
 	@$(MAKE) test-all
 	@echo ">>> [SUCCESS] System is healthy and production-ready."
 
-lint-and-format:
+lint-and-format: ## Check and fix code style with Ruff
 	@echo ">>> [RUFF] Running Unified Quality Engine..."
 	$(RUFF) check . --fix
 	$(RUFF) format .
 
 # --- Infrastructure & Environment ---
 
-setup: clean
+setup: clean ## Initialize environment, venv and install dependencies
 	@echo ">>> [STEP 1/4] Initializing Venv (Python 3.13)..."
 	@if [ ! -d "$(VENV)" ] && [ "$(CI)" = "false" ]; then $(PYTHON_BIN) -m venv $(VENV); fi
 	@$(PIP) install --upgrade pip setuptools wheel
@@ -69,30 +73,30 @@ setup: clean
 	@echo ">>> [STEP 4/4] Finalizing Git Hooks..."
 	@if [ "$(CI)" = "false" ]; then $(PRE) install; fi
 
-verify-env:
+verify-env: ## Validate internal module mapping and integrity check
 	@echo ">>> Running Dependency Audit..."
 	@$(PY) infra/scripts/integrity_check.py
 
-health-check:
+health-check: ## Verify GDrive connectivity and credentials integrity
 	@echo ">>> [SYSTEM] Starting Infrastructure Health Check..."
 	$(PY) -m infra.gdrive.service
 
 # --- Security & Testing ---
 
-security:
+security: ## Run dependency audit for known vulnerabilities (CVEs)
 	@echo ">>> [SECURITY] Updating audit tools..."
 	$(PIP) install --upgrade pip pip-audit
 	@echo ">>> [SECURITY] Running Dependency Audit on requirements.txt..."
 	# Pointing directly to the file prevents scanning corrupted local metadata
 	$(AUDIT) -r requirements.txt --ignore-vuln CVE-2025-53000
 
-test-all:
+test-all: ## Run the complete pytest suite
 	@echo ">>> Running Pytest suite..."
 	$(PYTEST) --verbose
 
 # --- Maintenance ---
 
-clean:
+clean: ## Remove temporary files and python caches
 	@echo ">>> Cleaning Workspace Caches..."
 	@echo ">>> Cleaning Caches..."
 	find . -type d -name "__pycache__" -exec rm -rf {} +

@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import io
 import os
+import sys
 from pathlib import Path
 from typing import Any, Final
 
@@ -277,4 +278,5 @@ if __name__ == "__main__":
             logger.info(f" - Found: {f['name']} (ID: {f['id']})")
 
     except Exception as e:
-        logger.error(f"Test failed: {e}")
+        logger.error(f"Test failed: {str(e)}")
+        sys.exit(1)
