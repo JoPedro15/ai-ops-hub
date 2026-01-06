@@ -80,6 +80,10 @@ class Logger:
             f"{self._BOLD}{self._HEADER}{title.upper()}{self._ENDC}"
         )
 
+    def subsection(self, message: str) -> None:
+        """Prints an information message in BOLD (Subsection)."""
+        print(f"[{self._get_timestamp()}] {self._BOLD}{message}{self._ENDC}")
+
     def print(self, message: str, color: str | None = None) -> None:
         """
         Raw print replacement. No timestamp, no prefix.

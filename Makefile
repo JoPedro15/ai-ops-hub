@@ -77,9 +77,9 @@ verify-env: ## Validate internal module mapping and integrity check
 	@echo ">>> Running Dependency Audit..."
 	@$(PY) infra/scripts/integrity_check.py
 
-health-check: ## Verify GDrive connectivity and credentials integrity
-	@echo ">>> [SYSTEM] Starting Infrastructure Health Check..."
-	$(PY) -m infra.gdrive.service
+health-check: ## Run all dynamically discovered health checks (GDrive, Lab, etc.)
+	@echo ">>> [SYSTEM] Starting Automated Health Suite..."
+	@$(PY) -m infra.scripts.health_check
 
 # --- Security & Testing ---
 
