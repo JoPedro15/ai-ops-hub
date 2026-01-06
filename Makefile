@@ -3,10 +3,14 @@
 
 # --- Configuration ---
 SHELL       := /bin/bash
+.SHELLFLAGS := -ec
+
 VENV        := .venv
 CI          ?= false
 PYTHON_BIN  := python3.13
 ROOT        := $(shell pwd)
+
+.DELETE_ON_ERROR:
 
 # Binary detection strategy
 ifeq ($(CI), true)

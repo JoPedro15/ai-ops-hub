@@ -30,23 +30,29 @@ jobs:
           cache: "pip"
 
       - name: Environment Setup
-        run: |
-          make setup CI=true
+        # Uses Makefile to handle venv and dependencies efficiently
+        run: make setup CI=true
 
       - name: Initialize Mock Infrastructure
-        # Normalizado para a pasta /data que o teu config.py usa
+        # Required to prevent FileNotFoundError during static analysis/integrity checks
         run: |
           mkdir -p data/logs
           echo '{}' > data/credentials.json
           echo '{}' > data/token.json
 
       - name: Lint & Static Analysis
-        run: make lint-and-format  # Usando o teu target do Makefile
+        # Checks for logic errors and code smells via Ruff
+        run: make lint-and-format
 
       - name: Security SAST
+        # Scans codebase for security vulnerabilities (Bandit rules)
         run: make security
 
-  # --- JOB 2: Changes Detection (Mantém-se igual) ---
+      - name: Infrastructure Integrity
+        # Validates internal package mapping
+        run: make verify-env
+
+  # --- JOB 2: Changes Detection ---
   changes:
     name: Detect Changes
     runs-on: ubuntu-latest
@@ -63,6 +69,7 @@ jobs:
             gdrive:
               - 'infra/gdrive/**'
               - 'config.py'
+              - 'data/**'
 
   # --- JOB 3: GDrive Specific Tests & Health Check ---
   gdrive-tests:
@@ -78,24 +85,26 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.13"
+          cache: "pip"
 
       - name: Install Environment
         run: make setup CI=true
 
-      - name: Deploy Real Secrets
-        # Escreve os secrets reais para o Health Check passar
+      - name: Deploy Production Secrets
+        # Injects real GDrive secrets for API communication
         run: |
           mkdir -p data
           echo '${{ secrets.GOOGLE_CREDENTIALS_JSON }}' > data/credentials.json
           echo '${{ secrets.GOOGLE_TOKEN_JSON }}' > data/token.json
 
       - name: Run Infrastructure Health Check
-        # O teste que acabámos de validar no teu Mac!
+        # Final gate: validates cloud connectivity before running tests
         run: make health-check CI=true
 
       - name: Run GDrive Tests
         env:
           PYTHONPATH: ${{ github.workspace }}
+          OUTPUT_FOLDER_ID: ${{ secrets.OUTPUT_FOLDER_ID }}
         run: |
-          # Corre apenas se tiveres a pasta de testes criada
-          pytest infra/gdrive/tests || echo "No tests found yet, skipping..."
+          # Executes pytest suite; ignores exit code 5 (no tests found)
+          pytest infra/gdrive/tests || [ $? -eq 5 ]
