@@ -2,7 +2,12 @@ from __future__ import annotations
 
 import sys
 from datetime import datetime
+from pathlib import Path
 from typing import Final
+
+from config import DATA_DIR
+
+LOG_FILE: Path = DATA_DIR / "logs" / "infrastructure.log"
 
 
 class Logger:
@@ -19,10 +24,33 @@ class Logger:
     _ENDC: Final[str] = "\033[0m"
     _BOLD: Final[str] = "\033[1m"
 
+    def __init__(self) -> None:
+        """Initializes the logger and ensures the log directory exists."""
+        from config import DATA_DIR
+
+        self.log_file: Path = DATA_DIR / "logs" / "infrastructure.log"
+
+        try:
+            self.log_file.parent.mkdir(parents=True, exist_ok=True)
+        except Exception as e:
+            print(f"WARNING: Could not create log directory: {e}")
+
     @staticmethod
     def _get_timestamp() -> str:
         """Returns current timestamp in YYYY-MM-DD HH:MM:SS format."""
         return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    def _write_to_file(self, level: str, message: str) -> None:
+        """Writes a plain-text entry to the log file (no ANSI colors)."""
+        ts: str = self._get_timestamp()
+        # Splitting the line to satisfy Ruff E501 (< 88 chars)
+        log_entry: str = f"[{ts}] {level.upper()}: {message}\n"
+
+        try:
+            with open(self.log_file, "a", encoding="utf-8") as f:
+                f.write(log_entry)
+        except Exception:  # noqa: S110
+            pass
 
     def info(self, message: str) -> None:
         """Prints an information message."""
