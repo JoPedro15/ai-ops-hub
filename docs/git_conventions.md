@@ -38,3 +38,7 @@ Before pushing any branch or opening a Pull Request (PR), you must ensure the co
 # Executed from the project roots
 make quality
 ```
+
+______________________________________________________________________
+
+João Pedro | Automation Engineer <br /> [GitHub profile](https://github.com/JoPedro15)

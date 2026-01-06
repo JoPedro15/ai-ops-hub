@@ -14,8 +14,10 @@ class Logger:
     """
     Standardized ANSI-colored logger for automation pipelines.
     Provides clean, professional terminal output without icons or emojis.
+    Integrated with local file persistence for CI/CD audit trails.
     """
 
+    # ANSI Escape Sequences for Terminal Formatting
     _HEADER: Final[str] = "\033[95m"
     _BLUE: Final[str] = "\033[94m"
     _GREEN: Final[str] = "\033[92m"
@@ -25,15 +27,19 @@ class Logger:
     _BOLD: Final[str] = "\033[1m"
 
     def __init__(self) -> None:
-        """Initializes the logger and ensures the log directory exists."""
-        from config import DATA_DIR
-
-        self.log_file: Path = DATA_DIR / "logs" / "infrastructure.log"
+        """
+        Initializes the logger instance.
+        Uses lazy import for config to prevent circular dependency issues.
+        """
 
         try:
+            from config import DATA_DIR
+
+            self.log_file: Path = DATA_DIR / "logs" / "infrastructure.log"
             self.log_file.parent.mkdir(parents=True, exist_ok=True)
-        except Exception as e:
-            print(f"WARNING: Could not create log directory: {e}")
+        except (ImportError, AttributeError):
+            # Fallback if config is not yet initialized or during early setup
+            self.log_file = Path("data/logs/infrastructure.log")
 
     @staticmethod
     def _get_timestamp() -> str:
@@ -41,54 +47,69 @@ class Logger:
         return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
     def _write_to_file(self, level: str, message: str) -> None:
-        """Writes a plain-text entry to the log file (no ANSI colors)."""
+        """
+        Internal helper to persist log entries to disk.
+        Strips ANSI colors to keep the plain text log file readable.
+        """
         ts: str = self._get_timestamp()
-        # Splitting the line to satisfy Ruff E501 (< 88 chars)
-        log_entry: str = f"[{ts}] {level.upper()}: {message}\n"
+        entry: str = f"[{ts}] {level.upper()}: {message}\n"
 
         try:
+            # Using append mode to maintain history during the execution session
             with open(self.log_file, "a", encoding="utf-8") as f:
-                f.write(log_entry)
+                f.write(entry)
         except Exception:  # noqa: S110
+            # Silently fail file logging to prevent crashing the main automation
             pass
 
     def info(self, message: str) -> None:
-        """Prints an information message."""
+        """Standard informational message."""
+        self._write_to_file("INFO", message)
         print(f"[{self._get_timestamp()}] INFO: {message}")
 
     def success(self, message: str) -> None:
-        """Prints a success message in green."""
+        """Success message highlighted in green."""
+        self._write_to_file("SUCCESS", message)
         print(f"[{self._get_timestamp()}] {self._GREEN}SUCCESS:{self._ENDC} {message}")
 
     def warning(self, message: str) -> None:
-        """Prints a warning message in yellow."""
+        """Warning alert highlighted in yellow."""
+        self._write_to_file("WARNING", message)
         print(
             f"[{self._get_timestamp()}] {self._WARNING}WARNING:{self._ENDC} {message}"
         )
 
-    def error(self, message: str) -> None:
-        """Prints an error message in red to stderr."""
+    def error(self, message: str, exception: Exception | None = None) -> None:
+        """
+        Error message in red to stderr.
+        Optionally logs the exception details for debugging.
+        """
+        error_msg: str = f"{message} | Error: {exception}" if exception else message
+        self._write_to_file("ERROR", error_msg)
         print(
-            f"[{self._get_timestamp()}] {self._FAIL}ERROR:{self._ENDC} {message}",
+            f"[{self._get_timestamp()}] {self._FAIL}ERROR:{self._ENDC} {error_msg}",
             file=sys.stderr,
         )
 
     def section(self, title: str) -> None:
-        """Prints a bold header section."""
+        """Major structural header for the log output."""
+        self._write_to_file("SECTION", f"--- {title.upper()} ---")
         print(
             f"\n[{self._get_timestamp()}] "
             f"{self._BOLD}{self._HEADER}{title.upper()}{self._ENDC}"
         )
 
     def subsection(self, message: str) -> None:
-        """Prints an information message in BOLD (Subsection)."""
-        print(f"[{self._get_timestamp()}] {self._BOLD}{message}{self._ENDC}")
+        """Bold informational message to distinguish sub-tasks within a section."""
+        self._write_to_file("SUBSECTION", message)
+        print(f"[{self._get_timestamp()}] {self._BOLD}INFO: {message}{self._ENDC}")
 
     def print(self, message: str, color: str | None = None) -> None:
         """
-        Raw print replacement. No timestamp, no prefix.
-        Optional ANSI color.
+        Direct replacement for the built-in print command.
+        Bypasses timestamp and prefixes for raw data output.
         """
+        self._write_to_file("PRINT", message)
         c: str = color if color else ""
         end: str = self._ENDC if color else ""
         print(f"{c}{message}{end}")

@@ -2,66 +2,99 @@
 from __future__ import annotations
 
 import json
-import os
-from typing import Any  # Added Dict for explicit typing
+import sys
+from pathlib import Path
+from typing import Any, Final
 
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
+from infra.common.logger import logger
+
+# Default Scopes for Drive and Sheets
+DEFAULT_SCOPES: Final[list[str]] = [
+    "https://www.googleapis.com/auth/drive",
+    "https://www.googleapis.com/auth/spreadsheets",
+]
 
 
 def get_google_service_credentials(
-    credentials_path: str,
-    token_path: str,
-    scopes: list[str],
+    credentials_path: str | Path,
+    token_path: str | Path,
+    scopes: list[str] | None = None,
 ) -> Credentials:
     """
     Handles the OAuth2 flow and returns valid credentials.
-
-    Args:
-        credentials_path: Path to the Google Cloud credentials JSON.
-        token_path: Path where the access token will be stored/loaded.
-        scopes: List of authorized Google API scopes.
+    Standardized for ai-ops-hub headless and local environments.
     """
+    selected_scopes: Final[list[str]] = scopes or DEFAULT_SCOPES
+    creds_file: Final[Path] = Path(credentials_path)
+    token_file: Final[Path] = Path(token_path)
+
     creds: Credentials | None = None
 
-    # The file token.json stores the user's access and refresh tokens
-    if os.path.exists(token_path):
-        creds = Credentials.from_authorized_user_file(token_path, scopes)
+    # 1. Load existing token if available
+    if token_file.exists():
+        try:
+            creds = Credentials.from_authorized_user_file(
+                str(token_file), selected_scopes
+            )
+        except Exception as e:
+            logger.warning(f"Existing token at {token_file.name} is invalid: {e}")
 
-    # If there are no (valid) credentials available, let the user log in.
+    # 2. Validation and Refresh Logic
     if not creds or not creds.valid:
         if creds and creds.expired and creds.refresh_token:
-            creds.refresh(Request())
-        else:
-            if not os.path.exists(credentials_path):
-                raise FileNotFoundError(
-                    f"Credentials file not found at {credentials_path}. "
-                    "Please download it from Google Cloud Console."
+            logger.info("Access token expired. Refreshing session...")
+            try:
+                creds.refresh(Request())
+            except Exception as e:
+                logger.error("Failed to refresh token", e)
+                creds = None  # Force re-authentication
+
+        # 3. Manual Authentication Flow (Local Server)
+        if not creds or not creds.valid:
+            if not creds_file.exists():
+                error_msg: str = f"Missing client secrets at {creds_file.absolute()}"
+                logger.error(error_msg)
+                raise FileNotFoundError(error_msg)
+
+            # Check if running in a TTY/Interactive environment
+            if not sys.stdin.isatty():
+                logger.error(
+                    "Non-interactive environment detected. Manual login impossible."
                 )
+                raise PermissionError("Manual OAuth flow requires user interaction.")
+
+            logger.section("Google OAuth2 Authentication")
+            logger.info("Opening browser for authorization...")
 
             flow: InstalledAppFlow = InstalledAppFlow.from_client_secrets_file(
-                credentials_path, scopes
+                str(creds_file), selected_scopes
             )
-            # This opens a browser window for manual authentication
             creds = flow.run_local_server(port=0)
 
-        # Save the credentials for the next run
-        with open(token_path, "w", encoding="utf-8") as token:
+        # 4. Save credentials for future use
+        token_file.parent.mkdir(parents=True, exist_ok=True)
+        with open(token_file, "w", encoding="utf-8") as token:
             token.write(creds.to_json())
+        logger.success(f"Authentication successful. Token saved to {token_file.name}")
 
     return creds
 
 
-def load_credentials_safe(file_path: str) -> dict[str, Any]:
+def load_credentials_safe(file_path: str | Path) -> dict[str, Any]:
     """
     Safe loader to prevent JSONDecodeError in CI/CD pipelines.
     """
-    if not os.path.exists(file_path) or os.path.getsize(file_path) == 0:
-        return {"status": "empty_or_missing", "path": file_path}
+    path: Final[Path] = Path(file_path)
+
+    if not path.exists() or path.stat().st_size == 0:
+        return {"status": "empty_or_missing", "path": str(path.absolute())}
 
     try:
-        with open(file_path, encoding="utf-8") as f:
+        with open(path, encoding="utf-8") as f:
             return json.load(f)
-    except json.JSONDecodeError:
-        return {"status": "invalid_json", "path": file_path}
+    except json.JSONDecodeError as e:
+        logger.error(f"Invalid JSON format in {path.name}", e)
+        return {"status": "invalid_json", "path": str(path.absolute())}

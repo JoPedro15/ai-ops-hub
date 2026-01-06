@@ -1,8 +1,9 @@
-from typing import Literal
+from __future__ import annotations
+
+from typing import Final, Literal
 
 import pandas as pd
 
-# Direct import to avoid circular dependencies within infra
 from infra.common.logger import logger
 from infra.gdrive.service import GDriveService
 
@@ -11,16 +12,13 @@ __all__: list[str] = ["DataProcessor"]
 
 class DataProcessor:
     """
-    Client specialized in data processing and feature engineering tasks.
-    Provides standardized methods to transform DataFrames for AI pipelines.
+    Service specialized in feature engineering and data transformation.
+    Ensures DataFrames are formatted correctly for Machine Learning pipelines.
     """
 
     def __init__(self, gdrive_service: GDriveService | None = None) -> None:
         """
-        Initializes the DataProcessor.
-
-        Args:
-            gdrive_service: Optional GDriveService instance for data-dependent tasks.
+        Initializes the DataProcessor with an optional GDrive session.
         """
         self.gdrive: GDriveService | None = gdrive_service
 
@@ -28,25 +26,34 @@ class DataProcessor:
         self, df: pd.DataFrame, columns: list[str], drop_first: bool = True
     ) -> pd.DataFrame:
         """
-        Encodes categorical features using One-Hot Encoding (Dummy Encoding).
+        Performs One-Hot Encoding on categorical features.
 
         Args:
-            df: The input pandas DataFrame.
-            columns: A list of column names to be encoded.
-            drop_first: Whether to get k-1 dummies out of k categorical levels.
+            df: Input DataFrame.
+            columns: Categorical columns to transform.
+            drop_first: If True, uses k-1 dummies to prevent multi-collinearity.
 
         Returns:
-            pd.DataFrame: A new DataFrame with transformed categorical features.
+            pd.DataFrame: Transformed DataFrame with numeric dummy columns.
         """
-        # Filter columns that actually exist in the DataFrame
-        existing_cols: list[str] = [col for col in columns if col in df.columns]
+        # SSoT: Create a deep copy to prevent side effects on the original DF
+        work_df: pd.DataFrame = df.copy()
 
-        if not existing_cols:
-            logger.warning("No matching columns found for encoding.")
-            return df
+        # Filter existing columns to avoid KeyError
+        valid_cols: Final[list[str]] = [
+            col for col in columns if col in work_df.columns
+        ]
 
-        logger.info(f"Encoding categorical columns: {existing_cols}")
-        return pd.get_dummies(df, columns=existing_cols, drop_first=drop_first)
+        if not valid_cols:
+            logger.warning("No valid categorical columns found for encoding.")
+            return work_df
+
+        logger.info(f"Applying One-Hot Encoding to: {valid_cols}")
+
+        # dtype=int ensures 0/1 instead of True/False, which is better for OLS models
+        return pd.get_dummies(
+            work_df, columns=valid_cols, drop_first=drop_first, dtype=int
+        )
 
     def handle_missing_values(
         self,
@@ -55,19 +62,28 @@ class DataProcessor:
         fill_value: float | int | str | None = None,
     ) -> pd.DataFrame:
         """
-        Handles missing values in the dataset based on the chosen strategy.
+        Cleans the dataset by removing or populating missing (NaN) values.
 
         Args:
             df: Input DataFrame.
-            strategy: Method to handle NaNs ('drop' or 'fill').
-            fill_value: The value to use if strategy is 'fill'.
+            strategy: 'drop' to remove rows, 'fill' to replace with fill_value.
+            fill_value: Scalar used for replacement if strategy is 'fill'.
+
+        Returns:
+            pd.DataFrame: Cleaned DataFrame.
         """
-        logger.info(f"Handling missing values with strategy: {strategy}")
+        logger.info(f"Executing missing values strategy: {strategy}")
+
+        work_df: pd.DataFrame = df.copy()
 
         if strategy == "drop":
-            return df.dropna()
+            cleaned_df = work_df.dropna()
+            rows_removed: int = len(work_df) - len(cleaned_df)
+            if rows_removed > 0:
+                logger.info(f"Dropped {rows_removed} rows containing NaNs.")
+            return cleaned_df
 
-        if strategy == "fill":
-            return df.fillna(value=fill_value) if fill_value is not None else df
+        if strategy == "fill" and fill_value is not None:
+            return work_df.fillna(value=fill_value)
 
-        return df
+        return work_df

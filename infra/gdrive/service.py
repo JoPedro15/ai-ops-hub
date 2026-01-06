@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import io
 import os
-import sys
 from pathlib import Path
 from typing import Any, Final
 
@@ -64,18 +63,21 @@ class GDriveService:
         return build("drive", "v3", credentials=creds)
 
     def upload_file(
-        self, file_path: str, folder_id: str, overwrite: bool = True
+        self, file_path: str | Path, folder_id: str, overwrite: bool = True
     ) -> str:
         """
         Uploads a file to a specific GDrive folder.
         If overwrite is True, it replaces existing files with the same name.
         """
-        file_name: str = os.path.basename(file_path)
-        media: MediaFileUpload = MediaFileUpload(file_path, resumable=True)
+        str_path: str = str(file_path)
+        file_name: str = os.path.basename(str_path)
+        media: MediaFileUpload = MediaFileUpload(str_path, resumable=True)
 
         if overwrite:
+            # Escape single quotes in file names for the query
+            safe_name: str = file_name.replace("'", "\\'")
             query: str = (
-                f"name = '{file_name}' and '{folder_id}' in parents and trashed = false"
+                f"name = '{safe_name}' and '{folder_id}' in parents and trashed = false"
             )
             response: dict[str, Any] = (
                 self.service.files().list(q=query, fields="files(id)").execute()
@@ -106,8 +108,9 @@ class GDriveService:
         """
         Verifies if a file exists within a specific folder.
         """
+        safe_name: str = file_name.replace("'", "\\'")
         query: str = (
-            f"name = '{file_name}' and '{folder_id}' in parents and trashed = false"
+            f"name = '{safe_name}' and '{folder_id}' in parents and trashed = false"
         )
         results: dict[str, Any] = (
             self.service.files()
@@ -145,10 +148,11 @@ class GDriveService:
 
         return all_files
 
-    def download_file(self, file_id: str, local_path: str) -> None:
+    def download_file(self, file_id: str, local_path: str | Path) -> None:
         """
         Downloads a file. Supports standard binary files and Google Editor exports.
         """
+        str_local_path: str = str(local_path)
         file_metadata: dict[str, Any] = (
             self.service.files().get(fileId=file_id, fields="mimeType, name").execute()
         )
@@ -167,15 +171,15 @@ class GDriveService:
         else:
             request = self.service.files().get_media(fileId=file_id)
 
-        fh = io.FileIO(local_path, "wb")
-        downloader: MediaIoBaseDownload = MediaIoBaseDownload(fh, request)
-        done: bool = False
-        while not done:
-            status, done = downloader.next_chunk()
-            if status:
-                logger.info(f"Download Progress: {int(status.progress() * 100)}%")
+        with io.FileIO(str_local_path, "wb") as fh:
+            downloader: MediaIoBaseDownload = MediaIoBaseDownload(fh, request)
+            done: bool = False
+            while not done:
+                status, done = downloader.next_chunk()
+                if status:
+                    logger.info(f"Download Progress: {int(status.progress() * 100)}%")
 
-        logger.success(f"File saved to: {local_path}")
+        logger.success(f"File saved to: {str_local_path}")
 
     def list_files(
         self, folder_id: str | None = None, limit: int = 10
@@ -215,8 +219,9 @@ class GDriveService:
         """
         Deletes a specific file by name within a folder.
         """
+        safe_name: str = file_name.replace("'", "\\'")
         query: str = (
-            f"name = '{file_name}' and '{folder_id}' in parents and trashed = false"
+            f"name = '{safe_name}' and '{folder_id}' in parents and trashed = false"
         )
         deleted: list[str] = self._list_and_delete(query)
         return len(deleted) > 0
@@ -262,21 +267,3 @@ class GDriveService:
                 logger.error(f"Failed to delete file {fid}: {str(e)}")
 
         return deleted_ids
-
-
-if __name__ == "__main__":
-    try:
-        logger.info("Starting GDrive Service Test...")
-        gdrive = GDriveService()
-
-        logger.success("Connection established! Listing last 5 files:")
-        files = gdrive.list_files(limit=5)
-
-        if not files:
-            logger.info("Empty Drive (or folder).")
-        for f in files:
-            logger.info(f" - Found: {f['name']} (ID: {f['id']})")
-
-    except Exception as e:
-        logger.error(f"Test failed: {str(e)}")
-        sys.exit(1)

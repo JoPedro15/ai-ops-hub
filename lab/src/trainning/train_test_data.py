@@ -3,7 +3,8 @@ import sys
 import matplotlib.pyplot as plt
 import numpy as np
 from sklearn.metrics import r2_score
-from src.utils import split_data
+
+from lab.src.data.data_split import split_data
 
 # 1. Data Generation (Matching the lesson logic)
 np.random.seed(2)

@@ -54,3 +54,7 @@ A component or experiment is only considered "Production-Ready" if it passes:
 ### 🏷️ Strict Typing
 
 Python 3.13 type annotations are mandatory for all `infra` modules to ensure IDE stability and prevent runtime type errors in automation pipelines.
+
+______________________________________________________________________
+
+João Pedro | Automation Engineer <br /> [GitHub profile](https://github.com/JoPedro15)

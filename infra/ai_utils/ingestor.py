@@ -1,10 +1,12 @@
-import os
+from __future__ import annotations
+
+from pathlib import Path
+from typing import Final
 
 import pandas as pd
 
-# Standard absolute imports from our new infra structure
-from infra.common import logger
-from infra.gdrive import GDriveService
+from infra.common.logger import logger
+from infra.gdrive.service import GDriveService
 
 __all__: list[str] = ["DataIngestor"]
 
@@ -17,67 +19,65 @@ class DataIngestor:
 
     def __init__(self, gdrive_service: GDriveService | None = None) -> None:
         """
-        Initializes the ingestor.
-        Injects a GDriveService to reuse authentication sessions.
+        Initializes the ingestor with an optional injected GDriveService.
 
         Args:
-            gdrive_service: An instance of GDriveService.
-            If None, a new one will be created using env fallbacks.
+            gdrive_service: Shared GDrive session. Creates a new one if None.
         """
-        if gdrive_service:
-            self.gdrive: GDriveService = gdrive_service
-        else:
-            # SSoT: Path resolution via environment or project default
-            self.gdrive = GDriveService()
+        self.gdrive: GDriveService = gdrive_service or GDriveService()
 
     def get_spreadsheet_data(
         self,
-        local_file_path: str,
+        local_file_path: str | Path,
         file_id: str,
         min_file_size: int = 500,
         force_download: bool = False,
     ) -> pd.DataFrame:
         """
-        Retrieves spreadsheet data from a local cache or downloads it from GDrive.
-        Automatically handles Google Sheets to Excel export conversion.
+        Retrieves spreadsheet data from local cache or GDrive.
+        Handles both modern (.xlsx) and legacy (.xls) Excel formats.
 
         Args:
-            local_file_path: Target path on the local filesystem.
-            file_id: Unique Google Drive file identifier.
-            min_file_size: Minimum threshold in bytes to consider a file valid.
-            force_download: If True, invalidates cache and triggers a new download.
+            local_file_path: Destination path on local disk.
+            file_id: Google Drive unique ID.
+            min_file_size: Byte threshold to detect corrupted/empty downloads.
+            force_download: If True, bypasses local cache.
 
         Returns:
-            pd.DataFrame: The loaded dataset ready for processing.
+            pd.DataFrame: Loaded dataset.
         """
-        file_exists: bool = os.path.exists(local_file_path)
-        is_corrupted: bool = False
+        # Convert to Path object for modern filesystem manipulation
+        path: Final[Path] = Path(local_file_path)
 
-        # 1. Evaluate existing file health
+        file_exists: bool = path.exists()
+        is_invalid: bool = False
+
+        # 1. Integrity Check: Verify if file size meets the minimum threshold
         if file_exists:
-            file_size: int = os.path.getsize(local_file_path)
-            is_corrupted = file_size < min_file_size
+            is_invalid = path.stat().st_size < min_file_size
 
-        # 2. Handle Cache Invalidation
-        if is_corrupted or force_download:
-            reason: str = "File corrupted" if is_corrupted else "Force download"
-            logger.warning(f"Cache Invalidation ({reason}): removing {local_file_path}")
-
-            if os.path.exists(local_file_path):
-                os.remove(local_file_path)
+        # 2. Cache Management: Remove file if corrupted or download is forced
+        if is_invalid or force_download:
+            reason: str = "Corrupted" if is_invalid else "Force download"
+            logger.warning(f"Invalidating cache ({reason}): {path.name}")
+            path.unlink(missing_ok=True)
             file_exists = False
 
-        # 3. Data Acquisition Phase
+        # 3. Data Acquisition: Fetch from Google Drive if not available locally
         if not file_exists:
-            logger.info(
-                "Resource missing or invalidated. "
-                f"Ingesting from GDrive (ID: {file_id})..."
-            )
-            os.makedirs(os.path.dirname(local_file_path), exist_ok=True)
-            self.gdrive.download_file(file_id=file_id, local_path=local_file_path)
+            logger.info(f"Ingesting resource from GDrive ID: {file_id}")
+            # Ensure the directory structure (e.g., data/raw) exists
+            path.parent.mkdir(parents=True, exist_ok=True)
+            self.gdrive.download_file(file_id=file_id, local_path=str(path))
         else:
-            logger.info(f"File found: using cached version at {local_file_path}")
+            logger.info(f"Cache hit: Using local version {path.name}")
 
-        # 4. Data Loading
-        # Using 'openpyxl' engine for modern .xlsx compatibility
-        return pd.read_excel(local_file_path, engine="openpyxl")
+        # 4. Smart Data Loading: Detect engine based on file extension
+        # .xls requires 'xlrd' while .xlsx requires 'openpyxl'
+        engine: str = "xlrd" if path.suffix == ".xls" else "openpyxl"
+
+        try:
+            return pd.read_excel(path, engine=engine)
+        except Exception as e:
+            logger.error(f"Critical failure loading Excel file {path.name}: {e}")
+            raise
