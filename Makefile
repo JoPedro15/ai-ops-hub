@@ -39,7 +39,7 @@ export PYTHONPATH := $(ROOT)
 
 .PHONY: help setup quality security test-all clean lint-and-format verify-env update-deps health-check
 
-help: ## Show this help message
+help:
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
 
 # --- Main Pipelines ---

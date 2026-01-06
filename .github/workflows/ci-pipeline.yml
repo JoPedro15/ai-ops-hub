@@ -91,11 +91,17 @@ jobs:
         run: make setup CI=true
 
       - name: Deploy Production Secrets
-        # Injects real GDrive secrets for API communication
+        env:
+          CREDS_JSON: ${{ secrets.GOOGLE_CREDENTIALS_JSON }}
+          TOKEN_JSON: ${{ secrets.GOOGLE_TOKEN_JSON }}
         run: |
           mkdir -p data
-          echo '${{ secrets.GOOGLE_CREDENTIALS_JSON }}' > data/credentials.json
-          echo '${{ secrets.GOOGLE_TOKEN_JSON }}' > data/token.json
+          # Use Python to safely write the JSON strings to files
+          python3 -c "import os; open('data/credentials.json', 'w').write(os.environ['CREDS_JSON'])"
+          python3 -c "import os; open('data/token.json', 'w').write(os.environ['TOKEN_JSON'])"
+
+          python3 -c "import json; json.load(open('data/credentials.json')); json.load(open('data/token.json'))"
+          echo "✅ Secrets deployed and validated."
 
       - name: Run Infrastructure Health Check
         # Final gate: validates cloud connectivity before running tests

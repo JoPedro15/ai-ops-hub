@@ -61,18 +61,19 @@ jobs:
 
       - name: Execute Health Diagnostics
         env:
-          GDRIVE_CREDENTIALS_DATA: ${{ secrets.GOOGLE_CREDENTIALS_JSON }}
-          GDRIVE_TOKEN_DATA: ${{ secrets.GOOGLE_TOKEN_JSON }}
-          GDRIVE_CREDENTIALS_PATH: "data/credentials.json"
-          GDRIVE_TOKEN_PATH: "data/token.json"
+          CREDS_JSON: ${{ secrets.GOOGLE_CREDENTIALS_JSON }}
+          TOKEN_JSON: ${{ secrets.GOOGLE_TOKEN_JSON }}
           PYTHONPATH: ${{ github.workspace }}
         run: |
           mkdir -p data/logs
-          printf "%s" "$GDRIVE_CREDENTIALS_DATA" > "$GDRIVE_CREDENTIALS_PATH"
-          printf "%s" "$GDRIVE_TOKEN_DATA" > "$GDRIVE_TOKEN_PATH"
 
-          # Pre-flight Check
-          python3 -c "import json; [json.load(open(f)) for f in ['$GDRIVE_CREDENTIALS_PATH', '$GDRIVE_TOKEN_PATH']]"
+          # Safe JSON deployment via Python
+          python3 -c "import os; open('data/credentials.json', 'w').write(os.environ['CREDS_JSON'])"
+          python3 -c "import os; open('data/token.json', 'w').write(os.environ['TOKEN_JSON'])"
+
+          # Pre-flight Integrity Check
+          python3 -c "import json; json.load(open('data/credentials.json')); json.load(open('data/token.json'))"
+          echo "✅ Secrets deployed and validated."
 
           make health-check CI=true
 
