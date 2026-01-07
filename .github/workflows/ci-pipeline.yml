@@ -170,6 +170,7 @@ jobs:
           cache: "pip"
       - name: Initialize Mock Infrastructure
         run: |
+          mkdir -p data/raw data/processed data/logs
           mkdir -p infra/credentials/gdrive
           mkdir -p data/raw
           echo '{}' > infra/credentials/gdrive/credentials.json
@@ -204,6 +205,7 @@ jobs:
 
       - name: Initialize Mock Infrastructure
         run: |
+          mkdir -p data/raw data/processed data/logs
           mkdir -p data/raw
           mkdir -p data/processed
           mkdir -p data/logs
