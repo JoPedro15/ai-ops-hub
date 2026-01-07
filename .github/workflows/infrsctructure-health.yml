@@ -32,7 +32,6 @@ jobs:
           CREDS_JSON: ${{ secrets.GOOGLE_CREDENTIALS_JSON }}
           TOKEN_JSON: ${{ secrets.GOOGLE_TOKEN_JSON }}
         run: |
-          mkdir -p data/logs
           mkdir -p infra/credentials/gdrive
           python3 -c "import os; open('infra/credentials/gdrive/credentials.json', 'w').write(os.environ['CREDS_JSON'])"
           python3 -c "import os; open('infra/credentials/gdrive/token.json', 'w').write(os.environ['TOKEN_JSON'])"
@@ -44,7 +43,6 @@ jobs:
         run: make security
 
       - name: Infrastructure Integrity
-        # Validates internal package mapping
         run: make verify-env
 
   system-audit:
