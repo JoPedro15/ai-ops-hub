@@ -39,14 +39,20 @@ GDRIVE_AILAB_FOLDER_ID: Final[str | None] = os.getenv("GDRIVE_AILAB_FOLDER_ID")
 
 # Data Lifecycle
 GDRIVE_DATA_FOLDER_ID: Final[str | None] = os.getenv("GDRIVE_DATA_FOLDER_ID")
-GDRIVE_DATA_RAW_ID: Final[str | None] = os.getenv("GDRIVE_DATA_RAW_FOLDER_ID")
-GDRIVE_DATA_PROC_ID: Final[str | None] = os.getenv("GDRIVE_DATA_PROCESSED_FOLDER_ID")
+GDRIVE_DATA_RAW_FOLDER_ID: Final[str | None] = os.getenv("GDRIVE_DATA_RAW_FOLDER_ID")
+GDRIVE_DATA_PROCESSED_FOLDER_ID: Final[str | None] = os.getenv(
+    "GDRIVE_DATA_PROCESSED_FOLDER_ID"
+)
 
 # Models & Analytics
 GDRIVE_MODELS_FOLDER_ID: Final[str | None] = os.getenv("GDRIVE_MODELS_FOLDER_ID")
-GDRIVE_MODELS_DEV_ID: Final[str | None] = os.getenv("GDRIVE_MODELS_DEV_FOLDER_ID")
-GDRIVE_MODELS_PROD_ID: Final[str | None] = os.getenv("GDRIVE_MODELS_PROD_FOLDER_ID")
-GDRIVE_REPORTS_ID: Final[str | None] = os.getenv("GDRIVE_REPORTS_FOLDER_ID")
+GDRIVE_MODELS_DEV_FOLDER_ID: Final[str | None] = os.getenv(
+    "GDRIVE_MODELS_DEV_FOLDER_ID"
+)
+GDRIVE_MODELS_PROD_FOLDER_ID: Final[str | None] = os.getenv(
+    "GDRIVE_MODELS_PROD_FOLDER_ID"
+)
+GDRIVE_REPORTS_FOLDER_ID: Final[str | None] = os.getenv("GDRIVE_REPORTS_FOLDER_ID")
 
 # --- Specific Assets ---
 CAR_DATA_FILE_ID: Final[str | None] = os.getenv("CAR_DATA_FILE_ID")
@@ -78,7 +84,11 @@ def ensure_paths() -> None:
 if __name__ == "__main__":
     from infra.common.logger import logger
 
-    critical_ids = [GDRIVE_DATA_RAW_ID, GDRIVE_DATA_PROC_ID, CAR_DATA_FILE_ID]
+    critical_ids = [
+        GDRIVE_DATA_RAW_FOLDER_ID,
+        GDRIVE_DATA_PROCESSED_FOLDER_ID,
+        CAR_DATA_FILE_ID,
+    ]
     if not all(critical_ids):
         logger.warning(
             "Some Data Lifecycle IDs are missing in .env. Verify connectivity."

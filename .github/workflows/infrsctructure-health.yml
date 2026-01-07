@@ -40,6 +40,11 @@ jobs:
           python3 -c "import os; open('infra/credentials/gdrive/token.json', 'w').write(os.environ['TOKEN_JSON'])"
 
       - name: Environment Setup
+        env:
+          OUTPUT_FOLDER_ID: ${{ vars.OUTPUT_FOLDER_ID }}
+          GDRIVE_DATA_RAW_ID: ${{ vars.GDRIVE_DATA_RAW_FOLDER_ID }}
+          GDRIVE_DATA_PROC_ID: ${{ vars.GDRIVE_DATA_PROCESSED_FOLDER_ID }}
+          CAR_DATA_FILE_ID: ${{ vars.CAR_DATA_FILE_ID }}
         run: make setup CI=true
 
       - name: Lint & Static Analysis
