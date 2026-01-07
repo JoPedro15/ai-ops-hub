@@ -118,8 +118,11 @@ jobs:
           python-version: "3.13"
           cache: "pip"
 
-      - name: Install Environment
-        run: make setup CI=true
+      - name: Initialize Data Structure
+        run: |
+          mkdir -p data/raw
+          mkdir -p data/processed
+          mkdir -p data/logs
 
       - name: Deploy Production Secrets
         env:
@@ -137,6 +140,9 @@ jobs:
           # 3. Integrity Check: Validate JSON syntax before proceeding
           python3 -c "import json; json.load(open('infra/credentials/gdrive/credentials.json')); json.load(open('infra/credentials/gdrive/token.json'))"
           echo "✅ Secrets deployed and validated in the modular vault."
+
+      - name: Install Environment
+        run: make setup CI=true
 
       - name: Run Gdrive Health Check
         # Final gate: validates cloud connectivity using the new paths before running tests
@@ -162,6 +168,12 @@ jobs:
         with:
           python-version: "3.13"
           cache: "pip"
+      - name: Initialize Mock Infrastructure
+        run: |
+          mkdir -p infra/credentials/gdrive
+          mkdir -p data/raw
+          echo '{}' > infra/credentials/gdrive/credentials.json
+          echo '{}' > infra/credentials/gdrive/token.json
 
       - name: Install Environment
         run: make setup CI=true
@@ -190,6 +202,15 @@ jobs:
           python-version: "3.13"
           cache: "pip"
 
+      - name: Initialize Mock Infrastructure
+        run: |
+          mkdir -p data/raw
+          mkdir -p data/processed
+          mkdir -p data/logs
+          mkdir -p infra/credentials/gdrive
+          echo '{}' > infra/credentials/gdrive/credentials.json
+          echo '{}' > infra/credentials/gdrive/token.json
+
       - name: Install Environment
         run: make setup CI=true
 
@@ -216,6 +237,13 @@ jobs:
         with:
           python-version: "3.13"
           cache: "pip"
+
+      - name: Initialize Mock Infrastructure
+        run: |
+          mkdir -p data/raw data/processed data/logs
+          mkdir -p infra/credentials/gdrive
+          echo '{}' > infra/credentials/gdrive/credentials.json
+          echo '{}' > infra/credentials/gdrive/token.json
 
       - name: Install Environment
         run: make setup CI=true

@@ -76,9 +76,6 @@ jobs:
           python-version: '3.13'
           cache: 'pip'
 
-      - name: Install Environment
-        run: make setup CI=true
-
       - name: Deploy Production Secrets
         env:
           CREDS_JSON: ${{ secrets.GOOGLE_CREDENTIALS_JSON }}
@@ -95,6 +92,9 @@ jobs:
           # 3. Pre-flight Integrity Check
           python3 -c "import json; json.load(open('infra/credentials/gdrive/credentials.json')); json.load(open('infra/credentials/gdrive/token.json'))"
           echo "✅ Production Secrets deployed in modular vault."
+
+      - name: Install Environment
+        run: make setup CI=true
 
       - name: Run Health Checks
         run:
