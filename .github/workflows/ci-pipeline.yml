@@ -31,9 +31,6 @@ jobs:
           python-version: "3.13"
           cache: "pip"
 
-      - name: Environment Setup
-        run: make setup CI=true
-
       - name: Deploy Credentials for Integrity Check
         env:
           CREDS_JSON: ${{ secrets.GOOGLE_CREDENTIALS_JSON }}
@@ -42,6 +39,9 @@ jobs:
           mkdir -p infra/credentials/gdrive
           python3 -c "import os; open('infra/credentials/gdrive/credentials.json', 'w').write(os.environ['CREDS_JSON'])"
           python3 -c "import os; open('infra/credentials/gdrive/token.json', 'w').write(os.environ['TOKEN_JSON'])"
+
+      - name: Environment Setup
+        run: make setup CI=true
 
       - name: Lint & Static Analysis
         run: make lint-and-format
