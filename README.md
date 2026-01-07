@@ -1,8 +1,8 @@
 # 🚀 AI-Ops Hub Monorepo
 
 ![Python 3.12](https://img.shields.io/badge/python-3.12-3776AB?style=flat-square&logo=python&logoColor=white)
-![CI Quality Pipeline](https://github.com/JoPedro15/ai-lab/actions/workflows/ci-pipeline.yml/badge.svg?branch=main)
-![On-Demand Test Runner](https://github.com/JoPedro15/ai-lab/actions/workflows/test-runner.yml/badge.svg?branch=main)
+![CI Quality Pipeline](https://github.com/JoPedro15/ai-ops-hub/actions/workflows/ci-pipeline.yml/badge.svg?branch=main)
+![On-Demand Test Runner](https://github.com/JoPedro15/ai-ops-hub/actions/workflows/infrastructure-health.yml/badge.svg?branch=main)
 <br />
 ![Ruff](https://img.shields.io/badge/linter-Ruff-000000?style=flat-square&logo=python&logoColor=white)
 ![Security](https://img.shields.io/badge/security-Bandit%20%7C%20Audit-44cc11?style=flat-square&logo=shield&logoColor=white)
