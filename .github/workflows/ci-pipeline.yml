@@ -31,6 +31,12 @@ jobs:
           python-version: "3.13"
           cache: "pip"
 
+      - name: Initialize Data Structure
+        run: |
+          mkdir -p data/raw
+          mkdir -p data/processed
+          mkdir -p data/logs
+
       - name: Deploy Credentials for Integrity Check
         env:
           CREDS_JSON: ${{ secrets.GOOGLE_CREDENTIALS_JSON }}
