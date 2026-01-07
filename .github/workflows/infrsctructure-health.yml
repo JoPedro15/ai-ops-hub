@@ -27,13 +27,15 @@ jobs:
       - name: Environment Setup
         run: make setup CI=true
 
-      - name: Initialize Mock Infrastructure
-        # Required to prevent FileNotFoundError during static analysis/integrity checks
+      - name: Deploy Credentials for Integrity Check
+        env:
+          CREDS_JSON: ${{ secrets.GOOGLE_CREDENTIALS_JSON }}
+          TOKEN_JSON: ${{ secrets.GOOGLE_TOKEN_JSON }}
         run: |
           mkdir -p data/logs
           mkdir -p infra/credentials/gdrive
-          echo '{}' > infra/credentials/gdrive/credentials.json
-          echo '{}' > infra/credentials/gdrive/token.json
+          python3 -c "import os; open('infra/credentials/gdrive/credentials.json', 'w').write(os.environ['CREDS_JSON'])"
+          python3 -c "import os; open('infra/credentials/gdrive/token.json', 'w').write(os.environ['TOKEN_JSON'])"
 
       - name: Lint & Static Analysis
         run: make lint-and-format
