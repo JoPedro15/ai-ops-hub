@@ -41,16 +41,16 @@ def verify_environment_variables() -> None:
     # Local imports to verify .env loading via config.py
     from config import (
         CAR_DATA_FILE_ID,
-        GDRIVE_DATA_PROC_ID,
-        GDRIVE_DATA_RAW_ID,
+        GDRIVE_DATA_PROCESSED_FOLDER_ID,
+        GDRIVE_DATA_RAW_FOLDER_ID,
         OUTPUT_FOLDER_ID,
     )
 
     logger.info("Checking critical environment variables (.env)...")
     critical_vars: dict[str, str | None] = {
         "OUTPUT_FOLDER_ID": OUTPUT_FOLDER_ID,
-        "GDRIVE_DATA_RAW_ID": GDRIVE_DATA_RAW_ID,
-        "GDRIVE_DATA_PROC_ID": GDRIVE_DATA_PROC_ID,
+        "GDRIVE_DATA_RAW_FOLDER_ID": GDRIVE_DATA_RAW_FOLDER_ID,
+        "GDRIVE_DATA_PROCESSED_FOLDER_ID": GDRIVE_DATA_PROCESSED_FOLDER_ID,
         "CAR_DATA_FILE_ID": CAR_DATA_FILE_ID,
     }
 
