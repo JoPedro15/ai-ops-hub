@@ -1,8 +1,6 @@
-import os
-from pathlib import Path
-
+from config import CREDS_PATH_GDRIVE
 from infra.common.logger import logger
-from infra.gdrive import GDriveService
+from infra.gdrive.service import GDriveService
 
 __all__: list[str] = ["verify_gdrive_connectivity"]
 
@@ -10,28 +8,18 @@ __all__: list[str] = ["verify_gdrive_connectivity"]
 def verify_gdrive_connectivity() -> bool:
     """
     Performs a deep diagnostic for Google Drive integration.
-    Validates credentials existence, token validity, and API reachability.
+    Uses centralized configuration paths for robustness.
     """
     logger.subsection("Starting GDrive Connectivity Diagnostics...")
 
     # 1. Path & Environment Pre-check
-    # We use the service's own root resolution logic to find credentials
-    root: Path = Path(__file__).parent.parent.parent.parent
-    creds_path: str = os.getenv(
-        "GDRIVE_CREDENTIALS_PATH", str(root / "data" / "credentials.json")
-    )
-
-    if not os.path.exists(creds_path):
-        logger.error(f"GDrive Failure: Missing credentials file at {creds_path}")
+    if not CREDS_PATH_GDRIVE.exists():
+        logger.error(f"GDrive Failure: Missing credentials file at {CREDS_PATH_GDRIVE}")
         return False
 
     try:
-        # 2. Service Instantiation
-        # This will trigger the auth flow and token refresh if necessary
+        # 2. Service Instantiation & 3. API Test
         service: GDriveService = GDriveService()
-
-        # 3. API Communication Test
-        # Minimal 'list' operation to verify the token/auth flow
         files: list[dict[str, str]] = service.list_files(limit=1)
 
         logger.success(
@@ -43,18 +31,13 @@ def verify_gdrive_connectivity() -> bool:
         error_msg: str = str(e).lower()
 
         # 4. Intelligent Error Categorization (Rigor Protocol)
-        if "refresh_token" in error_msg or "invalid_grant" in error_msg:
-            logger.error(
-                "GDrive Auth: Token expired or invalid. Manual re-auth required."
-            )
-        elif "unreachable" in error_msg or "connection" in error_msg:
-            logger.error(
-                "GDrive Network: API unreachable. Check internet connection or proxy."
-            )
+        if any(key in error_msg for key in ["refresh_token", "invalid_grant"]):
+            logger.error("GDrive Auth: Token invalid. Manual re-auth required.")
+
+        elif any(key in error_msg for key in ["unreachable", "connection"]):
+            logger.error("GDrive Network: API unreachable. Check internet connection.")
         elif "insufficient permissions" in error_msg:
-            logger.error(
-                "GDrive Scopes: Token lacks required permissions for this operation."
-            )
+            logger.error("GDrive Scopes: Token lacks required permissions.")
         else:
             logger.error(f"GDrive Unexpected Failure: {str(e)}")
 

@@ -4,11 +4,15 @@
 # --- Configuration ---
 SHELL       := /bin/bash
 .SHELLFLAGS := -ec
-
 VENV        := .venv
 CI          ?= false
 PYTHON_BIN  := python3.13
 ROOT        := $(shell pwd)
+
+# New modular credential paths
+CRED_ROOT       := infra/credentials
+GDRIVE_CRED_DIR := $(CRED_ROOT)/gdrive
+DATA_DIR        := data
 
 .DELETE_ON_ERROR:
 
@@ -48,11 +52,13 @@ quality: clean ## Run full quality gate
 	@echo ">>> [PIPELINE] Starting Full Quality Gate..."
 	@$(MAKE) lint-and-format
 	@echo ">>> [VALIDATION] Running Pre-commit Hooks..."
-	$(PRE) run --all-files
+	$(PRE) run --all-files || (echo ">>> [RETRY] Pre-commit fixed issues. Re-running validation..." && $(PRE) run --all-files)
 	@echo ">>> [SECURITY] Running Dependency Audit..."
 	@$(MAKE) security
 	@echo ">>> [TESTS] Executing Test Suite..."
 	@$(MAKE) test-all
+	@echo ">>> [SYSTEM] Running Final Health Checks..."
+	@$(MAKE) health-check
 	@echo ">>> [SUCCESS] System is healthy and production-ready."
 
 lint-and-format: ## Check and fix code style with Ruff
@@ -63,14 +69,17 @@ lint-and-format: ## Check and fix code style with Ruff
 # --- Infrastructure & Environment ---
 
 setup: clean ## Initialize environment, venv and install dependencies
-	@echo ">>> [STEP 1/4] Initializing Venv (Python 3.13)..."
+	@echo ">>> [STEP 1/5] Initializing Modular Infrastructure..."
+	@mkdir -p $(GDRIVE_CRED_DIR)
+	@mkdir -p $(DATA_DIR)/logs
+	@echo ">>> [STEP 2/5] Initializing Venv (Python 3.13)..."
 	@if [ ! -d "$(VENV)" ] && [ "$(CI)" = "false" ]; then $(PYTHON_BIN) -m venv $(VENV); fi
 	@$(PIP) install --upgrade pip setuptools wheel
-	@echo ">>> [STEP 2/4] Installing Requirements..."
+	@echo ">>> [STEP 3/5] Installing Requirements..."
 	$(PIP) install -r requirements.txt
-	@echo ">>> [STEP 3/4] Verifying Module Integrity..."
+	@echo ">>> [STEP 4/5] Verifying Module Integrity..."
 	@$(MAKE) verify-env
-	@echo ">>> [STEP 4/4] Finalizing Git Hooks..."
+	@echo ">>> [STEP 5/5] Finalizing Git Hooks..."
 	@if [ "$(CI)" = "false" ]; then $(PRE) install; fi
 
 verify-env: ## Validate internal module mapping and integrity check
@@ -92,7 +101,7 @@ security: ## Run dependency audit for known vulnerabilities (CVEs)
 
 test-all: ## Run the complete pytest suite
 	@echo ">>> Running Pytest suite..."
-	$(PYTEST) --verbose
+	$(PYTEST) infra/ --verbose
 
 # --- Maintenance ---
 

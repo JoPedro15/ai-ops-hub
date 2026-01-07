@@ -46,24 +46,24 @@ class DataIngestor:
         Returns:
             pd.DataFrame: Loaded dataset.
         """
-        # Convert to Path object for modern filesystem manipulation
-        path: Final[Path] = Path(local_file_path)
-
+        # 1. Path Normalization: Ensure absolute path for reliability in CI
+        path: Final[Path] = Path(local_file_path).resolve()
         file_exists: bool = path.exists()
-        is_invalid: bool = False
 
-        # 1. Integrity Check: Verify if file size meets the minimum threshold
+        # 2. Integrity Check: Verify if file size meets the minimum threshold
+        is_invalid: bool = False
         if file_exists:
+            # stat().st_size can be 0 if a download was interrupted
             is_invalid = path.stat().st_size < min_file_size
 
-        # 2. Cache Management: Remove file if corrupted or download is forced
+        # 3. Cache Management: Remove file if corrupted or download is forced
         if is_invalid or force_download:
-            reason: str = "Corrupted" if is_invalid else "Force download"
-            logger.warning(f"Invalidating cache ({reason}): {path.name}")
+            reason: str = "Corrupted" if is_invalid else "Force Download"
+            logger.warning(f"Invalidating cache for '{path.name}'. Reason: {reason}")
             path.unlink(missing_ok=True)
             file_exists = False
 
-        # 3. Data Acquisition: Fetch from Google Drive if not available locally
+        # 4. Data Acquisition: Fetch from Google Drive if not available locally
         if not file_exists:
             logger.info(f"Ingesting resource from GDrive ID: {file_id}")
             # Ensure the directory structure (e.g., data/raw) exists
@@ -72,12 +72,20 @@ class DataIngestor:
         else:
             logger.info(f"Cache hit: Using local version {path.name}")
 
-        # 4. Smart Data Loading: Detect engine based on file extension
-        # .xls requires 'xlrd' while .xlsx requires 'openpyxl'
-        engine: str = "xlrd" if path.suffix == ".xls" else "openpyxl"
+        # 5. Smart Data Loading: Engine selection & Validation
+        # .xls (Legacy) -> 'xlrd' | .xlsx (Modern) -> 'openpyxl'
+        engine: Final[str] = "xlrd" if path.suffix == ".xls" else "openpyxl"
 
         try:
             return pd.read_excel(path, engine=engine)
+        except ImportError:
+            # Critical check for CI environment dependencies
+            logger.error(f"Missing required engine '{engine}' for {path.suffix} files.")
+            raise
         except Exception as e:
             logger.error(f"Critical failure loading Excel file {path.name}: {e}")
             raise
+
+    def __repr__(self) -> str:
+        """String representation for easier debugging in logs."""
+        return f"<DataIngestor(gdrive={self.gdrive.__class__.__name__})>"

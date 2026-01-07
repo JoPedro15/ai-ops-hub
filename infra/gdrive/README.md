@@ -1,69 +1,75 @@
-# Google Drive Client
+# Google Drive Infrastructure Module
 
 [![Python 3.13](https://img.shields.io/badge/python-3.13-blue.svg)](https://www.python.org/downloads/release/python-3130/)
 [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 [![Security: Bandit](https://img.shields.io/badge/security-bandit-yellow.svg)](https://github.com/PyCQA/bandit)
 
-A robust infrastructure connector for Google Drive API v3, tailored for the **ai-ops-hub** ecosystem.
+A robust infrastructure service for Google Drive API v3, acting as the primary storage orchestration layer
+for the **ai-ops-hub** ecosystem.
 
-This service provides a high-level interface for file orchestration, abstracting the complexity of the
-Google Discovery API.
+This module abstracts the complexity of the Google Discovery API, providing a high-level,
+type-safe interface for the entire monorepo.
 
 ## Features
 
-- **Automated OAuth2**: Transparent token management with automatic refresh logic.
-- **Hybrid Path Support**: Native compatibility with `pathlib.Path` and standard strings.
-- **Smart Uploads**: Built-in overwrite logic that preserves File IDs for consistent downstream links.
-- **Advanced Cleanup**: Orchestrated methods for prefix-based deletion and permanent folder clearing.
-- **Auto-Export**: Automatically converts Google-native formats (Sheets) to Data Science standards (XLSX).
+- **Automated OAuth2**: Transparent token management with automatic refresh logic using the
+  centralized `infra/credentials/` vault.
+- **Hybrid Path Support**: Native compatibility with `pathlib.Path` and standardized strings.
+- **Smart Asset Persistence**: Built-in overwrite logic that preserves File IDs, ensuring consistent
+  downstream links for AI models and datasets.
+- **Orchestrated Cleanup**: Methods for prefix-based deletion and permanent folder clearing to maintain cloud hygiene.
+- **Auto-Export Engine**: Automatically converts Google-native formats (Sheets) to Data Science standards (`.xlsx`).
 
-## Prerequisites
+## 🔐 Credentials & Security
 
-Before initialization, ensure you have:
+Following our **Modular Credentials Vault** standard, this module expects:
 
-1. A **Google Cloud Project** with the Drive API enabled.
-1. A `credentials.json` file placed in the `data/` directory.
-1. A `.env` file containing the `OUTPUT_FOLDER_ID`.
+1. **`credentials.json`**: Placed in `infra/credentials/gdrive/`.
+1. **`token.json`**: Managed automatically in the same directory.
+1. **Environment**: `OUTPUT_FOLDER_ID` defined in the root `.env`.
 
-## Usage
+## 🚀 Internal Usage
 
-The service integrates seamlessly with the centralized `config.py` definitions:
+The service is designed for direct injection into other modules (like `ai_utils`) or lab experiments:
 
 ```python
 from pathlib import Path
 from infra.gdrive.service import GDriveService
 from config import REPORTS_DIR
 
-# Initialize (Uses CREDS_PATH and TOKEN_PATH from config.py by default)
+# Initialize (Automatically resolves credentials from infra/credentials/gdrive/)
 service: GDriveService = GDriveService()
 
-# Upload a report (Path objects supported)
-report_path: Path = REPORTS_DIR / "analysis_v1.xlsx"
+# Managed Upload (Path objects supported)
+report_path: Path = REPORTS_DIR / "crossfit_performance_stats.xlsx"
 file_id: str = service.upload_file(
     file_path=report_path,
     folder_id="target_folder_id",
     overwrite=True
 )
 
-# Download and recover data
+# Seamless Download
 service.download_file(
     file_id=file_id,
-    local_path="data/raw/recovered_data.xlsx"
+    local_path=Path("data/raw/cars_dataset.xlsx")
 )
 ```
 
-## Quality Assurance
+## Health Monitoring
 
-Managed via the root Quality Gate:
+Integrity is verified via the [Infrastructure Health System](../../infra/scripts/health_check/README.md).
 
-- **Linting**: Enforced by `Ruff` (standardized 88 line-length).
+The `health_check_gdrive.py` module performs:
+
+- Credential file discovery.
+- API reachability smoke tests.
+- Scope validation.
+
+## Quality Standards
+
+- **Linting**: Enforced by `Ruff` (88 line-length).
 - **Security**: Monitored by `Bandit` and `detect-secrets`.
-- **Testing**: Unified suite via `pytest`.
-
-```Bash
-# Execute full quality pipeline
-make quality
-```
+- **Zero-Print**: All operations use `infra.common.logger`.
 
 ______________________________________________________________________
 
