@@ -8,7 +8,7 @@ from typing import Final
 import pytest
 
 # Centralized configuration and tools
-from config import CREDS_PATH, DATA_DIR, OUTPUT_FOLDER_ID
+from config import CREDS_PATH_GDRIVE, DATA_DIR, OUTPUT_FOLDER_ID
 from dotenv import load_dotenv
 from infra.common.logger import logger
 from infra.gdrive.service import GDriveService
@@ -32,8 +32,10 @@ def gdrive_setup() -> tuple[GDriveService, str]:
         logger.warning("OUTPUT_FOLDER_ID not found. Skipping integration suite.")
         pytest.skip("Missing target folder ID for GDrive tests.")
 
-    if not CREDS_PATH.exists():
-        logger.error(f"Credentials not found at {CREDS_PATH}. Check your data/ folder.")
+    if not CREDS_PATH_GDRIVE.exists():
+        logger.error(
+            f"Credentials not found at {CREDS_PATH_GDRIVE}. Check your data/ folder."
+        )
         pytest.fail("Missing credentials.json for authentication.")
 
     # Service should default to config.py paths internally

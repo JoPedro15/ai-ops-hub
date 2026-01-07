@@ -36,8 +36,13 @@ class DataProcessor:
         Returns:
             pd.DataFrame: Transformed DataFrame with numeric dummy columns.
         """
+        if df.empty:
+            logger.warning("Encoding skipped: Provided DataFrame is empty.")
+            return df
+
         # SSoT: Create a deep copy to prevent side effects on the original DF
-        work_df: pd.DataFrame = df.copy()
+        # Using Final to ensure the reference to this workspace is constant
+        work_df: Final[pd.DataFrame] = df.copy()
 
         # Filter existing columns to avoid KeyError
         valid_cols: Final[list[str]] = [
@@ -50,7 +55,7 @@ class DataProcessor:
 
         logger.info(f"Applying One-Hot Encoding to: {valid_cols}")
 
-        # dtype=int ensures 0/1 instead of True/False, which is better for OLS models
+        # dtype=int ensures 0/1 instead of True/False, better for OLS/Linear models
         return pd.get_dummies(
             work_df, columns=valid_cols, drop_first=drop_first, dtype=int
         )
@@ -72,18 +77,38 @@ class DataProcessor:
         Returns:
             pd.DataFrame: Cleaned DataFrame.
         """
-        logger.info(f"Executing missing values strategy: {strategy}")
+        if df.empty:
+            logger.warning(
+                "Missing values handling skipped: Provided DataFrame is empty."
+            )
+            return df
 
-        work_df: pd.DataFrame = df.copy()
+        logger.info(f"Executing missing values strategy: {strategy}")
+        work_df: Final[pd.DataFrame] = df.copy()
 
         if strategy == "drop":
-            cleaned_df = work_df.dropna()
-            rows_removed: int = len(work_df) - len(cleaned_df)
+            cleaned_df: pd.DataFrame = work_df.dropna()
+            rows_removed: Final[int] = len(work_df) - len(cleaned_df)
+
             if rows_removed > 0:
-                logger.info(f"Dropped {rows_removed} rows containing NaNs.")
+                logger.info(
+                    f"Integrity Check: Dropped {rows_removed} rows containing NaNs."
+                )
             return cleaned_df
 
-        if strategy == "fill" and fill_value is not None:
+        if strategy == "fill":
+            if fill_value is None:
+                logger.error(
+                    "Strategy 'fill' requires a valid 'fill_value'. "
+                    "Returning original DF."
+                )
+                return work_df
+
             return work_df.fillna(value=fill_value)
 
         return work_df
+
+    def __repr__(self) -> str:
+        """String representation for better audit logs."""
+        status: str = "connected" if self.gdrive else "local-only"
+        return f"<DataProcessor(mode={status})>"

@@ -1,7 +1,7 @@
-# Python internals
+# --- Python Internals ---
 __pycache__/
 *.py[cod]
-*.class
+*$py.class
 .venv/
 .pytest_cache/
 .ruff_cache/
@@ -9,15 +9,33 @@ build/
 dist/
 *.egg-info/
 
-# Logs & Data
-logs/
-data/
-.env
-
-# IDEs
+# --- IDEs & OS ---
 .idea/
 .vscode/
 .DS_Store
-# Ignorar ficheiros de autenticação na pasta /data
-data/*.json
-!data/.gitkeep
+*.swp
+
+# --- Logs & Environment ---
+*.log
+data/logs/
+.env
+
+# --- Data & Artifacts ---
+# We keep the folders but ignore the content (except .gitkeep)
+data/raw/*
+data/processed/*
+data/models/*
+data/reports/*
+!data/**/.gitkeep
+
+# --- Secrets & Credentials (CRITICAL) ---
+# New modular security rule: Ignore all secrets in infra/credentials
+infra/credentials/**/*.json
+infra/credentials/**/*.token
+
+# Specifically blocking Google Auth files in the new path
+infra/credentials/gdrive/credentials.json
+infra/credentials/gdrive/token.json
+
+# Ensure we keep the directory structure in Git
+!infra/credentials/**/.gitkeep

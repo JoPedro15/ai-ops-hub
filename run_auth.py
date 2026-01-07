@@ -5,7 +5,7 @@ from infra.gdrive.service import GDriveService
 
 if __name__ == "__main__":
     try:
-        logger.info("Starting Google Drive authentication process...")
+        logger.info(">>> Starting Google Drive authentication process...")
 
         gdrive = GDriveService()
 

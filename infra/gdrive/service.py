@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any, Final
 
 # Centralized imports from root config
-from config import CREDS_PATH, OUTPUT_FOLDER_ID, TOKEN_PATH
+from config import CREDS_PATH_GDRIVE, OUTPUT_FOLDER_ID, TOKEN_PATH_GDRIVE
 from googleapiclient.discovery import Resource, build
 from googleapiclient.http import MediaFileUpload, MediaIoBaseDownload
 from infra.common.logger import logger
@@ -27,8 +27,8 @@ class GDriveService:
 
     def __init__(
         self,
-        credentials_path: str = str(CREDS_PATH),
-        token_path: str = str(TOKEN_PATH),
+        credentials_path: str = str(CREDS_PATH_GDRIVE),
+        token_path: str = str(TOKEN_PATH_GDRIVE),
         output_folder_id: str | None = None,
     ) -> None:
         """
@@ -37,6 +37,11 @@ class GDriveService:
         # Path Resolution Strategy: Arg > Project Default (from config.py)
         self.credentials_path: str = credentials_path
         self.token_path: str = token_path
+
+        if not Path(self.credentials_path).exists():
+            logger.error(
+                f"Critical Failure: GDrive credentials not found at {self.credentials_path}"
+            )
 
         # Output folder: Arg > Config Default
         self.output_folder_id: str | None = output_folder_id or OUTPUT_FOLDER_ID
