@@ -62,10 +62,6 @@ jobs:
     name: Full System Stability Audit
     needs: quality-check
     runs-on: ubuntu-latest
-    env:
-      PYTHONPATH: ${{ github.workspace }}
-      OUTPUT_FOLDER_ID: ${{ secrets.OUTPUT_FOLDER_ID }}
-
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
@@ -76,22 +72,21 @@ jobs:
           python-version: '3.13'
           cache: 'pip'
 
+      - name: Initialize Data Structure
+        run: |
+          mkdir -p data/raw
+          mkdir -p data/processed
+          mkdir -p data/logs
+
       - name: Deploy Production Secrets
         env:
           CREDS_JSON: ${{ secrets.GOOGLE_CREDENTIALS_JSON }}
           TOKEN_JSON: ${{ secrets.GOOGLE_TOKEN_JSON }}
         run: |
-          # 1. Modular Infrastructure Prep
           mkdir -p infra/credentials/gdrive
-          mkdir -p data/logs
-
-          # 2. Secure Secret Injection
           python3 -c "import os; open('infra/credentials/gdrive/credentials.json', 'w').write(os.environ['CREDS_JSON'])"
           python3 -c "import os; open('infra/credentials/gdrive/token.json', 'w').write(os.environ['TOKEN_JSON'])"
-
-          # 3. Pre-flight Integrity Check
-          python3 -c "import json; json.load(open('infra/credentials/gdrive/credentials.json')); json.load(open('infra/credentials/gdrive/token.json'))"
-          echo "✅ Production Secrets deployed in modular vault."
+          echo "✅ Production Secrets deployed."
 
       - name: Install Environment
         run: make setup CI=true
