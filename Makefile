@@ -59,6 +59,8 @@ quality: clean ## Run full quality gate
 	@$(MAKE) security
 	@echo ">>> [TESTS] Executing Test Suite..."
 	@$(MAKE) test-all
+	@echo ">>> [AUDIT] Running Dependency Audit..."
+	@$(PY) infra/scripts/integrity_check.py
 	@echo ">>> [SYSTEM] Running Final Health Checks..."
 	@$(MAKE) health-check
 	@echo ">>> [SUCCESS] System is healthy and production-ready."

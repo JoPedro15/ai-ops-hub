@@ -74,7 +74,7 @@ class DataIngestor:
 
         # 5. Smart Data Loading: Engine selection & Validation
         # .xls (Legacy) -> 'xlrd' | .xlsx (Modern) -> 'openpyxl'
-        engine: Final[str] = "xlrd" if path.suffix == ".xls" else "openpyxl"
+        engine: Final[str] = "xlrd" if path.suffix == [".xls", ".xlsx"] else "openpyxl"
 
         try:
             return pd.read_excel(path, engine=engine)

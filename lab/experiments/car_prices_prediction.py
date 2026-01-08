@@ -12,25 +12,36 @@ import statsmodels.api as sm
 from dotenv import load_dotenv
 from sklearn.preprocessing import StandardScaler
 
-# --- Configuration from SSoT (.env / config.py) ---
-from config import DATA_DIR, MODELS_DIR, PROCESSED_DIR, REPORTS_DIR
+from config import (
+    DATA_DIR,
+    GDRIVE_DATA_PROCESSED_FOLDER_ID,
+    GDRIVE_MODELS_DEV_FOLDER_ID,
+    GDRIVE_MODELS_PROD_FOLDER_ID,
+    GDRIVE_REPORTS_FOLDER_ID,
+    MODELS_DIR,
+    PROCESSED_DIR,
+    REPORTS_DIR,
+)
 from infra.common.logger import logger
 
 # 1. Environment Orchestration
 load_dotenv()
 
-
 # GDrive IDs
-GDRIVE_FILE_ID: Final[str | None] = os.getenv("CAR_DATA_FILE_ID")
-GDRIVE_PROC_DATA_ID: Final[str | None] = os.getenv("GDRIVE_DATA_PROCESSED_FOLDER_ID")
 GDRIVE_MODELS_PROD_ID: Final[str | None] = os.getenv("GDRIVE_MODELS_PROD_FOLDER_ID")
 GDRIVE_MODELS_DEV_ID: Final[str | None] = os.getenv("GDRIVE_MODELS_DEV_FOLDER_ID")
+
+GDRIVE_FILE_ID: Final[str | None] = os.getenv("CAR_DATA_FILE_ID")
 
 
 def train_linear_model(
     data: pd.DataFrame, features: list[str]
 ) -> tuple[Any, StandardScaler]:
     """Standardizes features and fits an OLS regression model."""
+    if data[features].isnull().any().any():
+        logger.warning("NaNs detected in features. Dropping rows...")
+        data = data.dropna(subset=features + ["Price"])
+
     X: pd.DataFrame = data[features].copy()
     y: pd.Series = data["Price"]
 
@@ -82,43 +93,35 @@ def export_assets(
     report_path: str | None = None,
     env: str = "prod",
 ) -> None:
-    """
-    Orchestrates the dual-storage strategy: Local Disk and GDrive Synchronization.
-    """
-    # Ensure directories exist
-    for folder in [PROCESSED_DIR, MODELS_DIR, REPORTS_DIR]:
-        folder.mkdir(parents=True, exist_ok=True)
-
+    # 1. Local Save (Usa os PATHS)
     csv_path: Path = PROCESSED_DIR / "car_df_prepared.csv"
     model_path: Path = MODELS_DIR / "car_price_model.pkl"
     scaler_path: Path = MODELS_DIR / "car_scaler.pkl"
 
-    # --- LOCAL PERSISTENCE ---
     df_prepared.to_csv(csv_path, index=False)
     joblib.dump(model, model_path)
     joblib.dump(scaler, scaler_path)
-    logger.success(">>> [LOCAL] Artifacts (CSV/PKL) saved to disk.")
+    logger.success(">>> [LOCAL] Artifacts saved.")
 
-    # --- GDRIVE SYNCHRONIZATION ---
-    target_folder: str | None = (
-        GDRIVE_MODELS_PROD_ID if env == "prod" else GDRIVE_MODELS_DEV_ID
+    # 2. GDrive Sync (Usa os IDs)
+    target_folder_id: str | None = (
+        GDRIVE_MODELS_PROD_FOLDER_ID if env == "prod" else GDRIVE_MODELS_DEV_FOLDER_ID
     )
 
-    if target_folder:
+    if target_folder_id and GDRIVE_DATA_PROCESSED_FOLDER_ID:
         try:
-            # Sync Processed Data, Models and Scaler
-            gdrive.upload_file(str(csv_path), GDRIVE_PROC_DATA_ID or target_folder)
-            gdrive.upload_file(str(model_path), target_folder)
-            gdrive.upload_file(str(scaler_path), target_folder)
-            logger.success(f">>> [GDRIVE] Assets synced to folder: {target_folder}")
+            gdrive.upload_file(str(csv_path), GDRIVE_DATA_PROCESSED_FOLDER_ID)
+            gdrive.upload_file(str(model_path), target_folder_id)
+            gdrive.upload_file(str(scaler_path), target_folder_id)
+            logger.success(">>> [GDRIVE] Assets synced successfully.")
         except Exception as e:
             logger.error(f"Failed to sync assets to GDrive: {e}")
 
-    # Cloud Sync for Performance Plot
-    if report_path and os.path.exists(report_path) and GDRIVE_PROC_DATA_ID:
+    # Cloud Sync para o Plot
+    if report_path and GDRIVE_REPORTS_FOLDER_ID:
         try:
-            gdrive.upload_file(report_path, GDRIVE_PROC_DATA_ID)
-            logger.success(">>> [GDRIVE] Performance plot synced to GDrive.")
+            gdrive.upload_file(report_path, GDRIVE_REPORTS_FOLDER_ID)
+            logger.success(">>> [GDRIVE] Performance plot synced.")
         except Exception as e:
             logger.error(f"Failed to sync plot to GDrive: {e}")
 

@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import os
+import sys
 from pathlib import Path
 from typing import Final
 
@@ -54,17 +55,14 @@ GDRIVE_MODELS_PROD_FOLDER_ID: Final[str | None] = os.getenv(
 )
 GDRIVE_REPORTS_FOLDER_ID: Final[str | None] = os.getenv("GDRIVE_REPORTS_FOLDER_ID")
 
-# --- Specific Assets ---
-CAR_DATA_FILE_ID: Final[str | None] = os.getenv("CAR_DATA_FILE_ID")
 
-
-def ensure_paths() -> None:
+def validate_config() -> None:
     """
-    Ensures that the entire mandatory directory structure exists.
+    Validates infrastructure integrity using sys for logging.
+    Ensures all physical paths exist and critical IDs are present.
     """
     mandatory_paths: list[Path] = [
         DATA_DIR,
-        CRED_DIR_GDRIVE,
         RAW_DIR,
         PROCESSED_DIR,
         MODELS_DIR,
@@ -72,36 +70,42 @@ def ensure_paths() -> None:
         LOGS_DIR,
         DOCS_DIR,
         LAB_DIR,
+        CRED_DIR_GDRIVE,
     ]
 
     for path in mandatory_paths:
         path.mkdir(parents=True, exist_ok=True)
         gitkeep: Path = path / ".gitkeep"
-        if not gitkeep.exists():
+        if not gitkeep.exists() and not any(path.iterdir()):
             gitkeep.touch()
 
+    critical_ids: dict[str, str | None] = {
+        "OUTPUT_FOLDER_ID": OUTPUT_FOLDER_ID,
+        "GDRIVE_DATA_RAW_FOLDER_ID": GDRIVE_DATA_RAW_FOLDER_ID,
+        "GDRIVE_DATA_PROCESSED_FOLDER_ID": GDRIVE_DATA_PROCESSED_FOLDER_ID,
+        "GDRIVE_MODELS_FOLDER_ID": GDRIVE_MODELS_FOLDER_ID,
+        "GDRIVE_MODELS_DEV_FOLDER_ID": GDRIVE_MODELS_DEV_FOLDER_ID,
+        "GDRIVE_MODELS_PROD_FOLDER_ID": GDRIVE_MODELS_PROD_FOLDER_ID,
+        "GDRIVE_REPORTS_FOLDER_ID": GDRIVE_REPORTS_FOLDER_ID,
+    }
 
-if __name__ == "__main__":
-    from infra.common.logger import logger
+    missing_critical = [name for name, val in critical_ids.items() if not val]
 
-    critical_ids = [
-        GDRIVE_DATA_RAW_FOLDER_ID,
-        GDRIVE_DATA_PROCESSED_FOLDER_ID,
-        CAR_DATA_FILE_ID,
-    ]
-    if not all(critical_ids):
-        logger.warning(
-            "Some Data Lifecycle IDs are missing in .env. Verify connectivity."
+    if missing_critical:
+        missing_str: str = ", ".join(missing_critical)
+        sys.stderr.write(
+            f"❌ FATAL ERROR: Missing critical environment variables: {missing_str}\n"
         )
-    logger.section("Infrastructure Path Verification")
-    logger.info(f"Targeting Credentials at: {CREDS_PATH_GDRIVE}")
-    if CREDS_PATH_GDRIVE.exists():
-        logger.success("Credentials file FOUND.")
-    else:
-        logger.error("Credentials file NOT FOUND at this location.")
-    logger.info(f"Project Root identified at: {ROOT_DIR}")
-    ensure_paths()
-    logger.success("Full directory structure verified.")
+        sys.stderr.write("Please check your .env file or GitHub Secrets.\n")
+        sys.exit(1)
 
-    if not OUTPUT_FOLDER_ID:
-        logger.warning("OUTPUT_FOLDER_ID not found. GDrive tests will be skipped.")
+    for name, val in critical_ids.items():
+        if val and ("/" in val or "\\" in val):
+            sys.stderr.write(
+                f"❌ FATAL ERROR: Variable {name} looks like a local path, "
+                "but must be a GDrive ID.\n"
+            )
+            sys.exit(1)
+
+
+validate_config()
