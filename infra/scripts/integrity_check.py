@@ -40,9 +40,10 @@ def verify_infrastructure_paths() -> None:
 def verify_environment_variables() -> None:
     # Local imports to verify .env loading via config.py
     from config import (
-        CAR_DATA_FILE_ID,
         GDRIVE_DATA_PROCESSED_FOLDER_ID,
         GDRIVE_DATA_RAW_FOLDER_ID,
+        GDRIVE_MODELS_DEV_FOLDER_ID,
+        GDRIVE_MODELS_PROD_FOLDER_ID,
         OUTPUT_FOLDER_ID,
     )
 
@@ -51,7 +52,8 @@ def verify_environment_variables() -> None:
         "OUTPUT_FOLDER_ID": OUTPUT_FOLDER_ID,
         "GDRIVE_DATA_RAW_FOLDER_ID": GDRIVE_DATA_RAW_FOLDER_ID,
         "GDRIVE_DATA_PROCESSED_FOLDER_ID": GDRIVE_DATA_PROCESSED_FOLDER_ID,
-        "CAR_DATA_FILE_ID": CAR_DATA_FILE_ID,
+        "GDRIVE_MODELS_PROD_FOLDER_ID": GDRIVE_MODELS_PROD_FOLDER_ID,
+        "GDRIVE_MODELS_DEV_FOLDER_ID": GDRIVE_MODELS_DEV_FOLDER_ID,
     }
 
     missing_vars: list[str] = [name for name, val in critical_vars.items() if not val]
