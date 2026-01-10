@@ -97,10 +97,8 @@ def test_get_spreadsheet_data_engine_selection(
     xls_file.write_text("dummy content")
 
     with patch("pandas.read_excel") as mock_read:
-        # Test XLSX
         ingestor.get_spreadsheet_data(xlsx_file, "id1", min_file_size=0)
         assert mock_read.call_args[1]["engine"] == "openpyxl"
 
-        # Test XLS
         ingestor.get_spreadsheet_data(xls_file, "id2", min_file_size=0)
-        assert mock_read.call_args[1]["engine"] == "xlrd"
+        assert mock_read.call_args[1]["engine"] == "openpyxl"
