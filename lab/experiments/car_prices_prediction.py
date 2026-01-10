@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import os
 from datetime import datetime
 from pathlib import Path
@@ -13,24 +15,20 @@ from dotenv import load_dotenv
 from sklearn.preprocessing import StandardScaler
 
 from config import (
-    DATA_DIR,
     GDRIVE_DATA_PROCESSED_FOLDER_ID,
     GDRIVE_MODELS_DEV_FOLDER_ID,
     GDRIVE_MODELS_PROD_FOLDER_ID,
     GDRIVE_REPORTS_FOLDER_ID,
     MODELS_DIR,
     PROCESSED_DIR,
+    RAW_DIR,
     REPORTS_DIR,
 )
+from infra.ai_utils import DataIngestor, DataProcessor
 from infra.common.logger import logger
+from infra.gdrive.service import GDriveService
 
-# 1. Environment Orchestration
 load_dotenv()
-
-# GDrive IDs
-GDRIVE_MODELS_PROD_ID: Final[str | None] = os.getenv("GDRIVE_MODELS_PROD_FOLDER_ID")
-GDRIVE_MODELS_DEV_ID: Final[str | None] = os.getenv("GDRIVE_MODELS_DEV_FOLDER_ID")
-
 GDRIVE_FILE_ID: Final[str | None] = os.getenv("CAR_DATA_FILE_ID")
 
 
@@ -38,37 +36,43 @@ def train_linear_model(
     data: pd.DataFrame, features: list[str]
 ) -> tuple[Any, StandardScaler]:
     """Standardizes features and fits an OLS regression model."""
-    if data[features].isnull().any().any():
-        logger.warning("NaNs detected in features. Dropping rows...")
-        data = data.dropna(subset=features + ["Price"])
+    data_processor = DataProcessor()
 
-    X: pd.DataFrame = data[features].copy()
-    y: pd.Series = data["Price"]
+    # Define the columns to check
+    cols_to_check: list[str] = features + ["Price"]
 
+    # Process the data to drop missing values
+    processed_data: pd.DataFrame = data_processor.handle_missing_values(
+        df=data[cols_to_check]
+    )
+
+    # Isolate the dependent from the independents vars
+    X: pd.DataFrame = processed_data[features].copy()
+    y: pd.Series = processed_data["Price"]
+
+    # Create a StandardScaler to save our calibration
     scaler: StandardScaler = StandardScaler()
+    # Uniformize the data into a comparable scale
     X_scaled: np.ndarray = scaler.fit_transform(X)
 
+    # Create a scaled dataFrame using the normalized data plus the features
+    # index allow the Dataframe lines to keep its index, in case empty line were removed
     X_scaled_df: pd.DataFrame = pd.DataFrame(X_scaled, columns=features, index=X.index)
     X_final: pd.DataFrame = sm.add_constant(X_scaled_df)
 
+    # Ordinary Least Squares: we create a model with all the data
     model: Any = sm.OLS(y, X_final).fit()
     return model, scaler
 
 
 def generate_performance_report(y_real: np.ndarray, y_pred: np.ndarray) -> str:
-    """
-    Creates a regression plot and persists it to the local filesystem.
-    """
-    # Ensure directory exists using the central config path
     REPORTS_DIR.mkdir(parents=True, exist_ok=True)
-
     timestamp: str = datetime.now().strftime("%Y%m%d_%H%M%S")
     report_path: Path = REPORTS_DIR / f"performance_{timestamp}.png"
 
     plt.figure(figsize=(10, 6))
     sns.scatterplot(x=y_real, y=y_pred, alpha=0.6)
 
-    # Reference line for perfect prediction
     line_range: np.ndarray = np.array([y_real.min(), y_real.max()])
     plt.plot(line_range, line_range, "r--", lw=2, label="Perfect Prediction")
 
@@ -81,7 +85,7 @@ def generate_performance_report(y_real: np.ndarray, y_pred: np.ndarray) -> str:
     plt.savefig(report_path)
     plt.close()
 
-    logger.info(f"Visual report saved locally at: {report_path.absolute()}")
+    logger.info(f"Visual report saved locally at: {report_path}")
     return str(report_path)
 
 
@@ -89,11 +93,10 @@ def export_assets(
     model: Any,
     scaler: StandardScaler,
     df_prepared: pd.DataFrame,
-    gdrive: Any,
+    gdrive: GDriveService,
     report_path: str | None = None,
     env: str = "prod",
 ) -> None:
-    # 1. Local Save (Usa os PATHS)
     csv_path: Path = PROCESSED_DIR / "car_df_prepared.csv"
     model_path: Path = MODELS_DIR / "car_price_model.pkl"
     scaler_path: Path = MODELS_DIR / "car_scaler.pkl"
@@ -103,7 +106,7 @@ def export_assets(
     joblib.dump(scaler, scaler_path)
     logger.success(">>> [LOCAL] Artifacts saved.")
 
-    # 2. GDrive Sync (Usa os IDs)
+    # 2. GDrive Sync
     target_folder_id: str | None = (
         GDRIVE_MODELS_PROD_FOLDER_ID if env == "prod" else GDRIVE_MODELS_DEV_FOLDER_ID
     )
@@ -117,7 +120,6 @@ def export_assets(
         except Exception as e:
             logger.error(f"Failed to sync assets to GDrive: {e}")
 
-    # Cloud Sync para o Plot
     if report_path and GDRIVE_REPORTS_FOLDER_ID:
         try:
             gdrive.upload_file(report_path, GDRIVE_REPORTS_FOLDER_ID)
@@ -127,15 +129,6 @@ def export_assets(
 
 
 def run_experiment() -> None:
-    """
-    Orchestrates the optimized experiment using direct imports.
-    """
-    # DIRECT IMPORTS: No more factories, no more unresolved references
-    from infra.ai_utils.ingestor import DataIngestor
-    from infra.ai_utils.processor import DataProcessor
-    from infra.gdrive.service import GDriveService
-
-    # 1. Initialize Objects Directly
     data_ingestor: DataIngestor = DataIngestor()
     data_processor: DataProcessor = DataProcessor()
     gdrive: GDriveService = GDriveService()
@@ -145,49 +138,44 @@ def run_experiment() -> None:
 
     logger.section("STARTING OPTIMIZED PRODUCTION EXPERIMENT")
 
-    # 2. Ingestion Phase
-    local_raw_path: Path = DATA_DIR / "raw" / "cars.xls"
+    # Ingestion
+    local_raw_path: Path = RAW_DIR / "cars.xlsx"
     df_raw: pd.DataFrame = data_ingestor.get_spreadsheet_data(
         file_id=GDRIVE_FILE_ID, local_file_path=str(local_raw_path)
     )
     df_raw.columns = df_raw.columns.str.strip().str.capitalize()
 
-    # 3. Categorical Encoding
-    logger.info("Encoding categorical variables (Make, Model, Type)...")
+    # Pre-processing
     df_prepared: pd.DataFrame = data_processor.encode_categorical_features(
         df=df_raw, columns=["Make", "Model", "Type"], drop_first=True
     )
 
-    # 4. Feature Selection & Training
+    # Features
     encoded_features: list[str] = [
         col
         for col in df_prepared.columns
         if col.startswith(("Make_", "Model_", "Type_"))
     ]
+
     active_features: list[str] = ["Mileage", "Doors", "Leather"] + encoded_features
 
     model, scaler = train_linear_model(df_prepared, active_features)
 
-    # 5. Performance Evaluation
+    # Eval
     X_scaled: np.ndarray = scaler.transform(df_prepared[active_features])
     X_final: pd.DataFrame = sm.add_constant(
-        pd.DataFrame(X_scaled, columns=active_features)
+        pd.DataFrame(X_scaled, columns=active_features, index=df_prepared.index)
     )
     y_pred: np.ndarray = model.predict(X_final)
     y_real: np.ndarray = df_prepared["Price"].values
 
-    # 6. Artifact Export (Local + GDrive)
-    # Import local export_assets if it's defined in this file
-    from car_prices_prediction import export_assets, generate_performance_report
-
+    # Reports & Export (Removida a importação circular)
     report_file: str = generate_performance_report(y_real, y_pred)
 
     logger.section("PRODUCTION REGRESSION SUMMARY")
     logger.print(str(model.summary()))
 
-    logger.section("EXPORT ASSETS")
     export_assets(model, scaler, df_prepared, gdrive=gdrive, report_path=report_file)
-
     logger.success("EXPERIMENT COMPLETED AND ARCHIVED")
 
 
