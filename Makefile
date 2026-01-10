@@ -40,7 +40,9 @@ else
 endif
 
 export PYTHONPATH := $(ROOT)
-
+TIMESTAMP := $(shell date '+%Y%m%d_%H%M%S')
+LOG_NAME  := infra_health_check_$(TIMESTAMP).log
+INFRA_LOG := $(DATA_DIR)/logs/$(LOG_NAME)
 .PHONY: help setup quality security test-all clean lint-and-format verify-env update-deps health-check
 
 help: ## Show this help message
@@ -65,6 +67,29 @@ lint-and-format: ## Check and fix code style with Ruff
 	@echo ">>> [RUFF] Running Unified Quality Engine..."
 	$(RUFF) check . --fix
 	$(RUFF) format .
+
+health-audit: ## Execute the complete pipeline (Quality + Security + Audit)
+	@mkdir -p $(DATA_DIR)/logs
+	@echo "[$(shell date '+%Y-%m-%d %H:%M:%S')] INFO    : >>> [AUDIT] Starting Infrastructure Health Check..." | tee $(INFRA_LOG)
+	@echo "---" | tee -a $(INFRA_LOG)
+	@
+	@echo "[STAGE 1/2] Global Quality & Security" | tee -a $(INFRA_LOG)
+	@echo ">>> Lint & Static Analysis" | tee -a $(INFRA_LOG)
+	@$(MAKE) lint-and-format 2>&1 | tee -a $(INFRA_LOG)
+	@echo ">>> Security SAST" | tee -a $(INFRA_LOG)
+	@$(MAKE) security 2>&1 | tee -a $(INFRA_LOG)
+	@echo ">>> Infrastructure Integrity" | tee -a $(INFRA_LOG)
+	@$(MAKE) verify-env 2>&1 | tee -a $(INFRA_LOG)
+	@
+	@echo "---" | tee -a $(INFRA_LOG)
+	@echo "[STAGE 2/2] Full System Stability Audit" | tee -a $(INFRA_LOG)
+	@echo ">>> Run Health Checks" | tee -a $(INFRA_LOG)
+	@$(MAKE) health-check CI=$(CI) 2>&1 | sed 's/\x1b\[[0-9;]*m//g' | tee -a $(INFRA_LOG)
+	@echo ">>> Run Tests" | tee -a $(INFRA_LOG)
+	@$(MAKE) test-all 2>&1 | tee -a $(INFRA_LOG)
+	@
+	@echo ">>> [AUDIT] Session saved to: $(INFRA_LOG)"
+	@echo "[$(shell date '+%Y-%m-%d %H:%M:%S')] SUCCESS : >>> [AUDIT] Pipeline completed successfully." | tee -a $(INFRA_LOG)
 
 # --- Infrastructure & Environment ---
 
