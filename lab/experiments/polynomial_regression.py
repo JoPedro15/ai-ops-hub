@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from sklearn.metrics import r2_score
 
-from lab.src.data.data_split import split_data
+from infra.ai_utils.processor import DataProcessor
 
 # 1. Data Generation (Matching the lesson logic)
 np.random.seed(2)
@@ -12,7 +12,7 @@ page_speeds: np.ndarray = np.random.normal(3.0, 1.0, 100)
 purchase_amount: np.ndarray = np.random.normal(50.0, 30.0, 100) / page_speeds
 
 # 2. Split Data using our new SSoT function from src
-train_x, test_x, train_y, test_y = split_data(
+train_x, test_x, train_y, test_y = DataProcessor.split_data(
     page_speeds, purchase_amount, train_size=0.8, shuffle=True
 )
 
