@@ -26,7 +26,7 @@ class DataIngestor:
         """
         self.gdrive: GDriveService = gdrive_service or GDriveService()
 
-    def get_spreadsheet_data(
+    def get_data(
         self,
         local_file_path: str | Path,
         file_id: str,
@@ -34,8 +34,8 @@ class DataIngestor:
         force_download: bool = False,
     ) -> pd.DataFrame:
         """
-        Retrieves spreadsheet data from local cache or GDrive.
-        Handles both modern (.xlsx) and legacy (.xls) Excel formats.
+        Retrieves dataset from local cache or GDrive.
+        Handles .csv, .xlsx (Modern Excel), and .xls (Legacy Excel).
 
         Args:
             local_file_path: Destination path on local disk.
@@ -45,6 +45,9 @@ class DataIngestor:
 
         Returns:
             pd.DataFrame: Loaded dataset.
+
+        Raises:
+            ValueError: If the file format is not supported.
         """
         # 1. Path Normalization: Ensure absolute path for reliability in CI
         path: Final[Path] = Path(local_file_path).resolve()
@@ -72,19 +75,39 @@ class DataIngestor:
         else:
             logger.info(f"Cache hit: Using local version {path.name}")
 
-        # 5. Smart Data Loading: Engine selection & Validation
-        # .xls (Legacy) -> 'xlrd' | .xlsx (Modern) -> 'openpyxl'
-        engine: Final[str] = "xlrd" if path.suffix == [".xls", ".xlsx"] else "openpyxl"
+        # 5. Smart Data Loading: Engine selection based on extension
+        suffix: str = path.suffix.lower()
 
         try:
-            return pd.read_excel(path, engine=engine)
-        except ImportError:
-            # Critical check for CI environment dependencies
-            logger.error(f"Missing required engine '{engine}' for {path.suffix} files.")
+            if suffix == ".csv":
+                return pd.read_csv(path)
+
+            if suffix == ".xls":
+                return pd.read_excel(path, engine="xlrd")
+
+            if suffix == ".xlsx":
+                return pd.read_excel(path, engine="openpyxl")
+
+            # Fallback for other formats supported by pandas (e.g. .parquet, .json)
+            # or if the user didn't provide an extension but the content is valid.
+            logger.warning(
+                f"Extension '{suffix}' not explicitly handled. Attempting default load."
+            )
+            if suffix in [".parquet"]:
+                return pd.read_parquet(path)
+
+            # Default fallback to Excel reader as it's the most common use case here
+            return pd.read_excel(path)
+
+        except ImportError as e:
+            logger.error(f"Missing dependency for '{suffix}' files: {e}")
             raise
         except Exception as e:
-            logger.error(f"Critical failure loading Excel file {path.name}: {e}")
+            logger.error(f"Critical failure loading file {path.name}: {e}")
             raise
+
+    # Alias for backward compatibility if needed, though refactoring is preferred
+    get_spreadsheet_data = get_data
 
     def __repr__(self) -> str:
         """String representation for easier debugging in logs."""

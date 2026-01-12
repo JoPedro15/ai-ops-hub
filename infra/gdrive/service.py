@@ -26,6 +26,13 @@ class GDriveService:
     Handles authentication, file management, and advanced cleanup logic.
     """
 
+    # MIME Type Mappings for Google Workspace Export
+    _MIME_EXPORT_MAP: Final[dict[str, str]] = {
+        "application/vnd.google-apps.spreadsheet": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",  # Sheets -> XLSX
+        "application/vnd.google-apps.document": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",  # Docs -> DOCX
+        "application/vnd.google-apps.presentation": "application/vnd.openxmlformats-officedocument.presentationml.presentation",  # Slides -> PPTX
+    }
+
     def __init__(
         self,
         credentials_path: str = str(CREDS_PATH_GDRIVE),
@@ -127,15 +134,24 @@ class GDriveService:
         return len(results.get("files", [])) > 0
 
     def _fetch_files(
-        self, query: str, fields: str = "id, name"
+        self, query: str, fields: str = "id, name", max_pages: int = 20
     ) -> list[dict[str, str]]:
         """
         Internal helper to fetch all files matching a query with pagination support.
+        Args:
+            max_pages: Safety limit to prevent infinite loops (default: 20).
         """
         all_files: list[dict[str, str]] = []
         page_token: str | None = None
+        page_count: int = 0
 
         while True:
+            if page_count >= max_pages:
+                logger.warning(
+                    f"Pagination limit reached ({max_pages} pages). Stopping fetch."
+                )
+                break
+
             results: dict[str, Any] = (
                 self.service.files()
                 .list(
@@ -149,6 +165,8 @@ class GDriveService:
 
             all_files.extend(results.get("files", []))
             page_token = results.get("nextPageToken")
+            page_count += 1
+
             if not page_token:
                 break
 
@@ -157,6 +175,7 @@ class GDriveService:
     def download_file(self, file_id: str, local_path: str | Path) -> None:
         """
         Downloads a file. Supports standard binary files and Google Editor exports.
+        Automatically converts Sheets to XLSX, Docs to DOCX, Slides to PPTX.
         """
         str_local_path: str = str(local_path)
         file_metadata: dict[str, Any] = (
@@ -166,15 +185,15 @@ class GDriveService:
         mime_type: str = file_metadata.get("mimeType", "")
         logger.info(f"Downloading {file_metadata.get('name')} (MIME: {mime_type})")
 
-        if "vnd.google-apps" in mime_type:
-            # Export Google Sheets to XLSX for Data Science compatibility
-            export_mime: str = (
-                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-            )
+        # Check if it's a Google Workspace file that needs export
+        if mime_type in self._MIME_EXPORT_MAP:
+            export_mime: str = self._MIME_EXPORT_MAP[mime_type]
+            logger.info(f"Exporting Google Workspace file to: {export_mime}")
             request = self.service.files().export_media(
                 fileId=file_id, mimeType=export_mime
             )
         else:
+            # Standard binary download
             request = self.service.files().get_media(fileId=file_id)
 
         with io.FileIO(str_local_path, "wb") as fh:

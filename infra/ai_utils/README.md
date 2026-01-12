@@ -4,82 +4,110 @@
 [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 
 A specialized utility toolkit for the **ai-ops-hub** ecosystem. This package orchestrates data acquisition, local
-caching, and feature engineering to provide a seamless bridge between raw data storage and AI model training.
+caching, feature engineering, and visualization to provide a seamless bridge between raw data storage and AI model training.
 
 ## Features
 
 - **Resilient Data Ingestion**: Managed downloads from GDrive with built-in file health checks and cache invalidation.
-- **Smart Excel Loading**: Automatic engine detection for modern `.xlsx` (openpyxl) and legacy `.xls` (xlrd) files.
-- **Standardized Preprocessing**: Robust encoding and cleaning methods using `pandas` and `numpy`.
-- **Performance Visualization**: Standardized reporting for model evaluation with automated artifact versioning.
+- **Smart Data Loading**: Automatic engine detection for `.csv`, `.parquet`, modern `.xlsx` (openpyxl), and legacy `.xls` (xlrd).
+- **Advanced Preprocessing**:
+  - Robust encoding (One-Hot) and missing value management.
+  - **New**: Scikit-learn integration for data splitting and feature scaling.
+- **Performance Visualization**: Standardized reporting for Regression and Classification models.
 - **Type-Safe Transformations**: Fully annotated methods for high-reliability pipelines.
 
 ## Key Components
 
-### Data Ingestor
+### 1. Data Ingestor (`ingestor.py`)
 
-Handles the acquisition phase, ensuring that local data is valid before loading. It reuses the `GDriveService` session for efficiency.
+Handles the acquisition phase, ensuring that local data is valid before loading.
 
 ```python
-from pathlib import Path
-import pandas as pd
 from infra.ai_utils.ingestor import DataIngestor
 from config import RAW_DIR
 
-ingestor: DataIngestor = DataIngestor()
+ingestor = DataIngestor()
 
-# Supports Pathlib and handles legacy .xls files automatically
-df: pd.DataFrame = ingestor.get_spreadsheet_data(
-    local_file_path=RAW_DIR / "dataset.xls",
+# Supports Pathlib and handles CSV, Parquet, and Excel automatically
+df = ingestor.get_data(
+    local_file_path=RAW_DIR / "dataset.csv",
     file_id="gdrive_file_id_here"
 )
 ```
 
-### Data Processor
+### 2. Data Processor (`processor.py`)
 
-Specialized in feature engineering tasks like categorical encoding (with integer output) and missing value management.
+Centralizes feature engineering and data preparation logic. Now powered by `scikit-learn`.
+
+| Method                        | Description                                                                |
+| :---------------------------- | :------------------------------------------------------------------------- |
+| `encode_categorical_features` | Performs One-Hot Encoding (returns 0/1 integers).                          |
+| `handle_missing_values`       | Drops rows or fills NaNs with specified values.                            |
+| `scale_features`              | Applies Standard Scaling (Z-score normalization).                          |
+| `split_data`                  | **Static**. Splits data into Train/Test sets with optional stratification. |
+
+**Example Usage:**
 
 ```python
-import pandas as pd
 from infra.ai_utils.processor import DataProcessor
 
-processor: DataProcessor = DataProcessor()
+processor = DataProcessor()
 
-# Safely encode categorical features (returns 0/1 integers for OLS models)
-clean_df: pd.DataFrame = processor.encode_categorical_features(
-    df=df,
-    columns=["category_column"],
-    drop_first=True
+# 1. Clean and Encode
+df = processor.handle_missing_values(df, strategy="drop")
+df = processor.encode_categorical_features(df, columns=["category_col"])
+
+# 2. Scale Numerical Features
+df = processor.scale_features(df, columns=["salary", "age"])
+
+# 3. Split Data (Static Method)
+train_x, test_x, train_y, test_y = DataProcessor.split_data(
+    x=df.drop("target", axis=1),
+    y=df["target"],
+    train_size=0.8,
+    stratify=df["target"] # Maintains class balance
 )
 ```
 
-### Model Visualizer
+### 3. Model Visualizer (`visualizer.py`)
 
-Generates production-ready performance reports. It includes automated timestamping and
-standardized styling for regression analysis.
+Generates production-ready performance reports with automated timestamping.
+
+| Method                  | Description                                |
+| :---------------------- | :----------------------------------------- |
+| `save_regression_plot`  | Scatter plot of Real vs. Predicted values. |
+| `save_residuals_plot`   | Histogram of errors to check normality.    |
+| `save_confusion_matrix` | Heatmap for classification accuracy.       |
+
+```python
+import numpy as np
+from infra.ai_utils.visualizer import ModelVisualizer
+from config import REPORTS_DIR
+
+# 1. Regression Analysis
+ModelVisualizer.save_regression_plot(
+    y_real=y_test,
+    y_pred=y_pred,
+    output_dir=REPORTS_DIR,
+    model_name="Price_Predictor"
+)
+
+# 2. Classification Analysis
+ModelVisualizer.save_confusion_matrix(
+    y_true=y_test_class,
+    y_pred=y_pred_class,
+    output_dir=REPORTS_DIR,
+    labels=["Spam", "Ham"]
+)
+```
 
 ## Testing & Quality
 
-```python
-from pathlib import Path
-import numpy as np
-from infra.ai_utils.visualizer import save_regression_plot
-from config import REPORTS_DIR
-
-# Generate a standardized performance scatter plot
-report_path: str = save_regression_plot(
-    y_real=np.array([20000, 25000]),
-    y_pred=np.array([19500, 26000]),
-    output_dir=REPORTS_DIR,
-    model_name="Car_Price_Model"
-)
-```
-
-This package follows the global quality gate defined in the project root:
+This package follows the global quality gate defined in the project root. To run tests and linting:
 
 ```Bash
-    # From the ai-ops-hub root
-    make quality
+# From the ai-ops-hub root
+make quality
 ```
 
 ______________________________________________________________________

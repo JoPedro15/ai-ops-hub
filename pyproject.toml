@@ -20,7 +20,7 @@ dependencies = [
     "google-auth-httplib2>=0.2.0",
     "google-auth-oauthlib>=1.2.0",
     # --- Data Science & ML Engine (AI-Lab Support) ---
-    "numpy>=2.0.0",       # Required for Python 3.13 stability
+    "numpy>=2.0.0",
     "pandas>=2.2.0",
     "scipy>=1.13.0",
     "scikit-learn>=1.5.0",
@@ -29,15 +29,18 @@ dependencies = [
     # --- Visualization ---
     "matplotlib>=3.9.0",
     "seaborn>=0.13.0",
-    # --- Excel Engines ---
+    # --- Data Format Engines ---
     "openpyxl>=3.1.0",
     "xlrd>=2.0.1",
+    "pyarrow>=15.0.0",
     # --- Quality, Security & Formatting ---
     "ruff>=0.4.0",
     "bandit>=1.7.0",
     "pip-audit>=2.7.0",
     "detect-secrets>=1.5.0",
+    "pre-commit>=3.7.0",
     "nbqa>=1.8.0",
+    "mdformat>=0.7.0",
     "mdformat-gfm>=0.3.5",
     # --- Testing & Notebook Automation ---
     "pytest>=8.1.0",
@@ -75,12 +78,12 @@ quote-style = "double"
 indent-style = "space"
 
 [tool.ruff.lint.extend-per-file-ignores]
-# 📓 Notebooks: Allow prints for training logs/viz and ignore security on experiments
+# Notebooks: Allow prints for training logs/viz and ignore security on experiments
 "*.ipynb" = ["T201", "S101"]
-# 🧪 Tests: Mandatory asserts for validation
+# Tests: Mandatory asserts for validation
 "**/tests/**/*.py" = ["S101"]
 "**/test_*.py" = ["S101"]
-# 📜 Logger: Explicitly allow print for terminal feedback
+# Logger: Explicitly allow print for terminal feedback
 "infra/common/logger.py" = ["T201"]
 
 # --- TESTING FRAMEWORK (PYTEST) ---

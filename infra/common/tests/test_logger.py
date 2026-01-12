@@ -1,17 +1,20 @@
 from pathlib import Path
 from typing import Final
+from unittest.mock import patch
 
 import pytest
 
-from infra.common.logger import Logger  # Import the class to create a clean instance
+from infra.common.logger import Logger
 
 
 @pytest.fixture
 def temp_logger(tmp_path: Path) -> Logger:
     """Provides a clean Logger instance pointing to a temporary file."""
-    # We create a new instance to avoid polluting the global 'logger'
-    instance = Logger()
-    # Override the log_file to a temporary location
+    # Patch mkdir to prevent creating real 'data/logs' during test init
+    with patch("pathlib.Path.mkdir"):
+        instance = Logger()
+
+    # Override the log_file to a temporary location provided by pytest
     instance.log_file = tmp_path / "test_infrastructure.log"
     return instance
 

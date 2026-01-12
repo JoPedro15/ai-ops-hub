@@ -17,7 +17,8 @@ dist/
 
 # --- Logs & Environment ---
 *.log
-data/logs/
+data/logs/*
+!data/logs/.gitkeep
 .env
 
 # --- Data & Artifacts ---
