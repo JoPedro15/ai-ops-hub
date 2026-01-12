@@ -1,6 +1,6 @@
 # 🚀 AI-Ops Hub Monorepo
 
-![Python 3.12](https://img.shields.io/badge/python-3.12-3776AB?style=flat-square&logo=python&logoColor=white)
+![Python 3.13](https://img.shields.io/badge/python-3.13-3776AB?style=flat-square&logo=python&logoColor=white)
 ![CI Quality Pipeline](https://github.com/JoPedro15/ai-ops-hub/actions/workflows/ci-pipeline.yml/badge.svg?branch=main)
 ![On-Demand Test Runner](https://github.com/JoPedro15/ai-ops-hub/actions/workflows/infrastructure-health.yml/badge.svg?branch=main)
 <br />
