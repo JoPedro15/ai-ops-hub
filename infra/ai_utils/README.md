@@ -11,6 +11,7 @@ caching, and feature engineering to provide a seamless bridge between raw data s
 - **Resilient Data Ingestion**: Managed downloads from GDrive with built-in file health checks and cache invalidation.
 - **Smart Excel Loading**: Automatic engine detection for modern `.xlsx` (openpyxl) and legacy `.xls` (xlrd) files.
 - **Standardized Preprocessing**: Robust encoding and cleaning methods using `pandas` and `numpy`.
+- **Performance Visualization**: Standardized reporting for model evaluation with automated artifact versioning.
 - **Type-Safe Transformations**: Fully annotated methods for high-reliability pipelines.
 
 ## Key Components
@@ -52,7 +53,27 @@ clean_df: pd.DataFrame = processor.encode_categorical_features(
 )
 ```
 
+### Model Visualizer
+
+Generates production-ready performance reports. It includes automated timestamping and
+standardized styling for regression analysis.
+
 ## Testing & Quality
+
+```python
+from pathlib import Path
+import numpy as np
+from infra.ai_utils.visualizer import save_regression_plot
+from config import REPORTS_DIR
+
+# Generate a standardized performance scatter plot
+report_path: str = save_regression_plot(
+    y_real=np.array([20000, 25000]),
+    y_pred=np.array([19500, 26000]),
+    output_dir=REPORTS_DIR,
+    model_name="Car_Price_Model"
+)
+```
 
 This package follows the global quality gate defined in the project root:
 
