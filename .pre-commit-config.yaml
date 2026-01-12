@@ -21,7 +21,8 @@ repos:
     hooks:
       - id: detect-secrets
         args: [ '--baseline', '.secrets.baseline' ]
-        exclude: .*/tests/.*|.*\.ipynb  # Avoiding false positives in tests/notebooks
+        # No longer excluding tests and notebooks for better security coverage.
+        # False positives should be audited and added to the baseline.
 
   # --- Ruff: Unified Linter, Formatter & Security (Native Notebook Support) ---
   - repo: https://github.com/astral-sh/ruff-pre-commit
@@ -37,9 +38,9 @@ repos:
     rev: v2.4.1
     hooks:
       - id: codespell
-        args: [ --ignore-words-list=nd,ue,ody ]
-        # Updated paths: excluding new modules' artifacts
-        exclude: ^infra/.*\.egg-info/|^.venv/|^lab/notebooks/.*\.ipynb
+        args: [ --ignore-words-list=nd,ue,ody,sAIS,OLt ]
+        # Check all files, including notebooks. Exclude only generated artifacts.
+        exclude: ^infra/.*\.egg-info/|^.venv/
 
   # --- Documentation: Markdown formatting for high-quality READMEs ---
   - repo: https://github.com/executablebooks/mdformat
