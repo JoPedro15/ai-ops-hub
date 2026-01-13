@@ -43,7 +43,7 @@ export PYTHONPATH := $(ROOT)
 TIMESTAMP := $(shell date '+%Y%m%d_%H%M%S')
 LOG_NAME  := infra_health_check_$(TIMESTAMP).log
 INFRA_LOG := $(DATA_DIR)/logs/$(LOG_NAME)
-.PHONY: help setup quality security test-all clean lint-and-format health-check
+.PHONY: help setup quality security test-all clean lint-and-format health-check pre-commit
 
 help: ## Show this help message
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
@@ -54,7 +54,7 @@ quality: clean ## Run full quality gate: Lint, Format, Pre-commit, Security, Tes
 	@echo ">>> [PIPELINE] Starting Full Quality Gate..."
 	@$(MAKE) lint-and-format
 	@echo ">>> [VALIDATION] Running Pre-commit Hooks..."
-	$(PRE) run --all-files || (echo ">>> [RETRY] Pre-commit fixed issues. Re-running validation..." && $(PRE) run --all-files)
+	@$(MAKE) pre-commit
 	@echo ">>> [SECURITY] Running Dependency Audit..."
 	@$(MAKE) security
 	@echo ">>> [TESTS] Executing Test Suite..."
@@ -67,6 +67,9 @@ lint-and-format: ## Check and fix code style with Ruff
 	@echo ">>> [RUFF] Running Unified Quality Engine..."
 	$(RUFF) check . --fix
 	$(RUFF) format .
+
+pre-commit: ## Run pre-commit hooks on all files
+	$(PRE) run --all-files || (echo ">>> [RETRY] Pre-commit fixed issues. Re-running validation..." && $(PRE) run --all-files)
 
 health-audit: ## Execute a verbose pipeline and save results to a log file
 	@mkdir -p $(DATA_DIR)/logs

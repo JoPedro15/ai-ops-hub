@@ -51,10 +51,11 @@ jobs:
       - name: Environment Setup
         run: make setup CI=true
 
-      - name: Run Linting, Formatting, and Pre-commit Hooks
-        run: |
-          make lint-and-format
-          make -C . pre-commit
+      - name: Run Linting & Formatting
+        run: make lint-and-format
+
+      - name: Run Pre-commit Hooks
+        run: make pre-commit
 
       - name: Run Security Audit
         run: make security
