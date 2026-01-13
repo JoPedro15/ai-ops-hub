@@ -4,7 +4,7 @@ name: Infrastructure Health Check
 
 on:
   schedule:
-    - cron: '0 20 * * 5'
+    - cron: '0 20 * * 5' # Weekly on Fridays at 20:00
   workflow_dispatch:
 
 permissions:
@@ -14,99 +14,44 @@ env:
   OUTPUT_FOLDER_ID: ${{ vars.OUTPUT_FOLDER_ID }}
   GDRIVE_DATA_RAW_FOLDER_ID: ${{ vars.GDRIVE_DATA_RAW_FOLDER_ID }}
   GDRIVE_DATA_PROCESSED_FOLDER_ID: ${{ vars.GDRIVE_DATA_PROCESSED_FOLDER_ID }}
+  CAR_DATA_FILE_ID: ${{ vars.CAR_DATA_FILE_ID }}
   GDRIVE_MODELS_FOLDER_ID: ${{ vars.GDRIVE_MODELS_FOLDER_ID }}
   GDRIVE_MODELS_DEV_FOLDER_ID: ${{ vars.GDRIVE_MODELS_DEV_FOLDER_ID }}
   GDRIVE_MODELS_PROD_FOLDER_ID: ${{ vars.GDRIVE_MODELS_PROD_FOLDER_ID }}
   GDRIVE_REPORTS_FOLDER_ID: ${{ vars.GDRIVE_REPORTS_FOLDER_ID }}
-  CAR_DATA_FILE_ID: ${{ vars.CAR_DATA_FILE_ID }}
   PYTHONPATH: ${{ github.workspace }}
 
 jobs:
-  quality-check:
-    name: Global Quality & Security
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.13"
-          cache: "pip"
-
-      - name: Initialize Data Structure
-        run: |
-          mkdir -p data/raw
-          mkdir -p data/processed
-          mkdir -p data/logs
-
-      - name: Deploy Credentials for Integrity Check
-        env:
-          CREDS_JSON: ${{ secrets.GOOGLE_CREDENTIALS_JSON }}
-          TOKEN_JSON: ${{ secrets.GOOGLE_TOKEN_JSON }}
-        run: |
-          mkdir -p infra/credentials/gdrive
-          python3 -c "import os; open('infra/credentials/gdrive/credentials.json', 'w').write(os.environ['CREDS_JSON'])"
-          python3 -c "import os; open('infra/credentials/gdrive/token.json', 'w').write(os.environ['TOKEN_JSON'])"
-
-      - name: Environment Setup
-        run: make setup CI=true
-
-      - name: Lint & Static Analysis
-        run: make lint-and-format
-
-      - name: Security SAST
-        run: make security
-
-      - name: Infrastructure Integrity
-        run: make verify-env
-
-  system-audit:
-    name: Full System Stability Audit
-    needs: quality-check
+  health-audit:
+    name: Weekly System Audit
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Set up Python 3.13
+      - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.13'
           cache: 'pip'
 
-      - name: Initialize Data Structure
-        run: |
-          mkdir -p data/raw
-          mkdir -p data/processed
-          mkdir -p data/logs
-
-      - name: Deploy Production Secrets
+      - name: Deploy Production Credentials
         env:
           CREDS_JSON: ${{ secrets.GOOGLE_CREDENTIALS_JSON }}
           TOKEN_JSON: ${{ secrets.GOOGLE_TOKEN_JSON }}
         run: |
           mkdir -p infra/credentials/gdrive
-          python3 -c "import os; open('infra/credentials/gdrive/credentials.json', 'w').write(os.environ['CREDS_JSON'])"
-          python3 -c "import os; open('infra/credentials/gdrive/token.json', 'w').write(os.environ['TOKEN_JSON'])"
+          echo "$CREDS_JSON" > infra/credentials/gdrive/credentials.json
+          echo "$TOKEN_JSON" > infra/credentials/gdrive/token.json
           echo "✅ Production Secrets deployed."
 
       - name: Install Environment
         run: make setup CI=true
 
-      - name: Run Health Checks
-        run:
-          make health-check CI=true
+      - name: Run Full Health Suite
+        # Validates GDrive connectivity, permissions, and module integrity
+        run: make health-check
 
-      - name: Run Tests
-        run:
-          make test-all
-
-      - name: Upload Health Logs
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: infrastructure-logs
-          path: data/logs/*.log
-          retention-days: 7
+      - name: Run Integration Tests
+        # Validates functional logic and deep API integration
+        run: make test-all

@@ -30,7 +30,7 @@ env:
 jobs:
   # --- JOB 1: Static Analysis, Quality Gate & Security ---
   quality-gate:
-    name: Global Quality & Security
+    name: Quality & Security Gate
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -42,76 +42,47 @@ jobs:
           python-version: "3.13"
           cache: "pip"
 
-      - name: Initialize Data Structure
-        run: |
-          mkdir -p data/raw
-          mkdir -p data/processed
-          mkdir -p data/logs
-
-      - name: Deploy Credentials for Integrity Check
-        env:
-          CREDS_JSON: ${{ secrets.GOOGLE_CREDENTIALS_JSON }}
-          TOKEN_JSON: ${{ secrets.GOOGLE_TOKEN_JSON }}
+      - name: Mock Credentials for Static Analysis
         run: |
           mkdir -p infra/credentials/gdrive
-          python3 -c "import os; open('infra/credentials/gdrive/credentials.json', 'w').write(os.environ['CREDS_JSON'])"
-          python3 -c "import os; open('infra/credentials/gdrive/token.json', 'w').write(os.environ['TOKEN_JSON'])"
+          echo '{}' > infra/credentials/gdrive/credentials.json
+          echo '{}' > infra/credentials/gdrive/token.json
 
       - name: Environment Setup
         run: make setup CI=true
 
-      - name: Lint & Static Analysis
+      - name: Run Linting & Formatting
         run: make lint-and-format
 
-      - name: Security SAST
+      - name: Run Pre-commit Hooks
+        run: make pre-commit
+
+      - name: Run Security Audit
         run: make security
 
-      - name: Infrastructure Integrity
-        # Validates internal package mapping
-        run: make verify-env
-
-  # --- JOB 2: Changes Detection ---
-  changes:
-    name: Detect Changes
+  # --- JOB 2: Component Tests (Unit & Integration) ---
+  component-tests:
+    name: Component Tests (${{ matrix.component }})
+    needs: quality-gate
     runs-on: ubuntu-latest
-    outputs:
-      gdrive: ${{ steps.filter.outputs.gdrive }}
-      logger: ${{ steps.filter.outputs.logger }}
-      ingestor: ${{ steps.filter.outputs.ingestor }}
-      processor: ${{ steps.filter.outputs.processor }}
-      lab: ${{ steps.filter.outputs.lab }}
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+    strategy:
+      fail-fast: false
+      matrix:
+        component: [gdrive, ingestor, processor, visualizer]
+        include:
+          - component: gdrive
+            path: infra/gdrive/tests
+            health_check: true
+          - component: ingestor
+            path: infra/ai_utils/tests/test_ingestor.py
+            health_check: true
+          - component: processor
+            path: infra/ai_utils/tests/test_processor.py
+            health_check: true
+          - component: visualizer
+            path: infra/ai_utils/tests/test_visualizer.py
+            health_check: false # No specific health check for visualizer
 
-      - name: Filter Paths
-        uses: dorny/paths-filter@v3
-        id: filter
-        with:
-          filters: |
-            gdrive:
-              - 'infra/gdrive/**'
-              - 'infra/credentials/gdrive/**'
-              - 'config.py'
-            logger:
-              - 'infra/common/**'
-            helpers:
-              - 'infra/common/helpers/**'
-            ingestor:
-              - 'infra/ai_utils/ingestor.py'
-              - 'infra/ai_utils/tests/test_ingestor.py'
-            processor:
-              - 'infra/ai_utils/processor.py'
-              - 'infra/ai_utils/tests/test_processor.py'
-            lab:
-              - 'lab/**'
-
-  # --- JOB 3: GDrive Specific Tests & Health Check ---
-  gdrive-tests:
-    name: GDrive Integration Tests
-    needs: [ quality-gate, changes ]
-    if: ${{ needs.changes.outputs.gdrive == 'true' }}
-    runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -122,80 +93,36 @@ jobs:
           python-version: "3.13"
           cache: "pip"
 
-      - name: Initialize Data Structure
-        run: |
-          mkdir -p data/raw
-          mkdir -p data/processed
-          mkdir -p data/logs
-
-      - name: Deploy Production Secrets
+      - name: Deploy Credentials
         env:
           CREDS_JSON: ${{ secrets.GOOGLE_CREDENTIALS_JSON }}
           TOKEN_JSON: ${{ secrets.GOOGLE_TOKEN_JSON }}
         run: |
-          # 1. Create the new modular directory structure
           mkdir -p infra/credentials/gdrive
-
-          # 2. Deploy secrets to the correct modular vault paths
-          echo "Deploying secrets to infra/credentials/gdrive/..."
-          python3 -c "import os; open('infra/credentials/gdrive/credentials.json', 'w').write(os.environ['CREDS_JSON'])"
-          python3 -c "import os; open('infra/credentials/gdrive/token.json', 'w').write(os.environ['TOKEN_JSON'])"
-
-          # 3. Integrity Check: Validate JSON syntax before proceeding
-          python3 -c "import json; json.load(open('infra/credentials/gdrive/credentials.json')); json.load(open('infra/credentials/gdrive/token.json'))"
-          echo "✅ Secrets deployed and validated in the modular vault."
+          if [ "${{ matrix.component }}" == "gdrive" ]; then
+            echo "Deploying REAL secrets for GDrive integration tests..."
+            echo "$CREDS_JSON" > infra/credentials/gdrive/credentials.json
+            echo "$TOKEN_JSON" > infra/credentials/gdrive/token.json
+          else
+            echo "Deploying MOCK secrets for unit tests..."
+            echo '{}' > infra/credentials/gdrive/credentials.json
+            echo '{}' > infra/credentials/gdrive/token.json
+          fi
 
       - name: Install Environment
         run: make setup CI=true
 
-      - name: Run Gdrive Health Check
-        # Final gate: validates cloud connectivity using the new paths before running tests
-        run: python3 -m infra.scripts.health_check.health_check_gdrive CI=true
+      - name: Run Component Health Check
+        if: ${{ matrix.health_check == true }}
+        run: python3 -m infra.scripts.health_check.health_check_${{ matrix.component }}
 
-      - name: Run GDrive Tests
-        env:
-          PYTHONPATH: ${{ github.workspace }}
-        run: |
-          pytest infra/gdrive/tests || [ $? -eq 5 ]
+      - name: Run Component Tests
+        run: pytest ${{ matrix.path }} --verbose
 
-  logger-tests:
-    name: Logger Unit Tests
-    needs: [ quality-gate, changes ]
-    if: ${{ needs.changes.outputs.logger == 'true' }}
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.13"
-          cache: "pip"
-      - name: Initialize Mock Infrastructure
-        run: |
-          mkdir -p data/raw data/processed data/logs
-          mkdir -p infra/credentials/gdrive
-          mkdir -p data/raw
-          echo '{}' > infra/credentials/gdrive/credentials.json
-          echo '{}' > infra/credentials/gdrive/token.json
-
-      - name: Install Environment
-        run: make setup CI=true
-
-      - name: Run Logger Health Check
-        run: python3 -m infra.scripts.health_check.health_check_logger CI=true
-
-      - name: Run Logger Tests
-        env:
-          PYTHONPATH: ${{ github.workspace }}
-        run: |
-          pytest infra/common/tests/test_logger.py || [ $? -eq 5 ]
-
-  ingestor-tests:
-    name: AI Ingestor Unit Tests
-    needs: [ quality-gate, changes ]
-    if: ${{ needs.changes.outputs.ingestor == 'true' }}
+  # --- JOB 3: Final System Health Check ---
+  system-health:
+    name: Full System Health Check
+    needs: component-tests
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -207,58 +134,17 @@ jobs:
           python-version: "3.13"
           cache: "pip"
 
-      - name: Initialize Mock Infrastructure
+      - name: Deploy Production Credentials
+        env:
+          CREDS_JSON: ${{ secrets.GOOGLE_CREDENTIALS_JSON }}
+          TOKEN_JSON: ${{ secrets.GOOGLE_TOKEN_JSON }}
         run: |
-          mkdir -p data/raw data/processed data/logs
-          mkdir -p data/raw
-          mkdir -p data/processed
-          mkdir -p data/logs
           mkdir -p infra/credentials/gdrive
-          echo '{}' > infra/credentials/gdrive/credentials.json
-          echo '{}' > infra/credentials/gdrive/token.json
+          echo "$CREDS_JSON" > infra/credentials/gdrive/credentials.json
+          echo "$TOKEN_JSON" > infra/credentials/gdrive/token.json
 
       - name: Install Environment
         run: make setup CI=true
 
-      - name: Run Ingestor Health Check
-        run: python3 -m infra.scripts.health_check.health_check_ingestor CI=true
-
-      - name: Run Ingestor Tests
-        env:
-          PYTHONPATH: ${{ github.workspace }}
-        run: |
-          pytest infra/ai_utils/tests/test_ingestor.py || [ $? -eq 5 ]
-
-  processor-tests:
-    name: AI Processor Unit Tests
-    needs: [ quality-gate, changes ]
-    if: ${{ needs.changes.outputs.processor == 'true' }}
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.13"
-          cache: "pip"
-
-      - name: Initialize Mock Infrastructure
-        run: |
-          mkdir -p data/raw data/processed data/logs
-          mkdir -p infra/credentials/gdrive
-          echo '{}' > infra/credentials/gdrive/credentials.json
-          echo '{}' > infra/credentials/gdrive/token.json
-
-      - name: Install Environment
-        run: make setup CI=true
-
-      - name: Run Processor Health Check
-        run: python3 -m infra.scripts.health_check.health_check_processor CI=true
-
-      - name: Run Processor Tests
-        env:
-          PYTHONPATH: ${{ github.workspace }}
-        run: |
-          pytest infra/ai_utils/tests/test_processor.py || [ $? -eq 5 ]
+      - name: Run Full Health Suite
+        run: make health-check

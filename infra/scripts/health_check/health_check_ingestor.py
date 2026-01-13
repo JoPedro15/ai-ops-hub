@@ -1,64 +1,85 @@
-import os
+import tempfile
 from pathlib import Path
 
-import openpyxl
 import pandas as pd
 
 from infra.ai_utils import DataIngestor
-from infra.common import logger
+from infra.common.logger import logger
 
 __all__: list[str] = ["verify_data_ingestor"]
 
 
 def verify_data_ingestor() -> bool:
     """
-    Validates the Data Ingestor infrastructure.
-    Checks: Dependencies, Path Integrity, and Cache Directory Permissions.
+    Validates the Data Ingestor's core functionality: reading different file formats.
+    Checks for required engine dependencies and performs in-memory read tests.
     """
+    logger.subsection("Checking Data Ingestor Engines...")
+    all_ok = True
+
+    # 1. Verify Engine Dependencies
     try:
-        logger.subsection("Checking Data Ingestor Dependencies...")
+        import openpyxl  # noqa: F401
 
-        # 1. Dependency Smoke Test
-        # Checking versions to ensure packages are correctly linked in the .venv
-        _pandas_v: str = pd.__version__
-        _engine_v: str = openpyxl.__version__
+        logger.success("Engine Check: 'openpyxl' for .xlsx is available.")
+    except ImportError:
+        logger.error("Engine Missing: 'openpyxl' is required for .xlsx files.")
+        all_ok = False
 
-        # 2. Path & Credentials Validation
-        # SSoT: Uses environment variable with default fallback
-        creds_path: str = os.getenv("GOOGLE_CREDENTIALS_PATH", "data/credentials.json")
-        if not os.path.exists(creds_path):
-            logger.warning(f"Ingestor Warning: Credentials not found at {creds_path}")
-            # We don't return False here because the ingestor might
-            # still work with local cache only, but we warn the user.
+    try:
+        import xlrd  # noqa: F401
 
-        # 3. Cache Write Permission Test
-        # This is a critical 'Movement Standard' for the Ingestor
-        root: Path = Path(__file__).parent.parent.parent.parent
-        cache_dir: Path = root / "data" / "cache"
+        logger.success("Engine Check: 'xlrd' for .xls is available.")
+    except ImportError:
+        logger.error("Engine Missing: 'xlrd' is required for legacy .xls files.")
+        all_ok = False
 
-        try:
-            cache_dir.mkdir(parents=True, exist_ok=True)
-            test_file: Path = cache_dir / ".ingestor_write_test"
-            test_file.write_text(f"io_check_via_{_engine_v}")
-            test_file.unlink()
-            logger.success("Cache Directory: IO verified (Write/Delete).")
-        except Exception as e:
-            logger.error(f"Cache IO Failure: {str(e)}")
-            return False
+    try:
+        import pyarrow  # noqa: F401
 
-        # 4. Service Instantiation Smoke Test
-        # Testing the factory logic and GDrive integration
-        ingestor: DataIngestor = DataIngestor()
+        logger.success("Engine Check: 'pyarrow' for .parquet is available.")
+    except ImportError:
+        logger.warning("Engine Missing: 'pyarrow' is needed for .parquet files.")
+        # Not marking as a failure as it's less common, but warning is important.
 
-        if ingestor.gdrive is None:
-            logger.error(
-                "Ingestor Failure: Service initialized with null GDrive engine."
-            )
-            return False
-
-        logger.success("Data Ingestor: Ready for ingestion.")
-        return True
-
-    except Exception as e:
-        logger.error(f"Data Ingestor Health Failure: {str(e)}")
+    if not all_ok:
         return False
+
+    # 2. Perform In-Memory Read Tests
+    ingestor = DataIngestor(gdrive_service=None)  # Test in local-only mode
+    sample_df = pd.DataFrame({"col1": [1, 2], "col2": ["A", "B"]})
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        temp_path = Path(tmpdir)
+
+        # Test files to create and read
+        # Note: We do not test .xls creation as xlwt is deprecated/legacy.
+        # We only verify that the xlrd reader engine is present above.
+        test_files = {
+            "test.csv": lambda df, p: df.to_csv(p, index=False),
+            "test.xlsx": lambda df, p: df.to_excel(p, index=False, engine="openpyxl"),
+        }
+
+        for filename, writer in test_files.items():
+            file_path = temp_path / filename
+            try:
+                writer(sample_df, file_path)
+                # Use the ingestor to read the data back
+                # We pass min_file_size=0 to accept small test files
+                read_df = ingestor.get_data(
+                    file_path, file_id="dummy_id", min_file_size=0
+                )
+
+                if not read_df.equals(sample_df):
+                    logger.error(f"Integrity Fail: Data mismatch for {filename}.")
+                    all_ok = False
+                else:
+                    logger.success(f"Format Check: Successfully read '{filename}'.")
+            except Exception as e:
+                logger.error(f"Format Check Fail: Cannot process '{filename}': {e}")
+                all_ok = False
+
+    if all_ok:
+        logger.success("Data Ingestor: All formats and engines are operational.")
+
+    return all_ok
