@@ -5,10 +5,6 @@ from datetime import datetime
 from pathlib import Path
 from typing import Final
 
-from config import DATA_DIR
-
-LOG_FILE: Path = DATA_DIR / "logs" / "infrastructure.log"
-
 
 class Logger:
     """
@@ -29,17 +25,21 @@ class Logger:
     def __init__(self) -> None:
         """
         Initializes the logger instance.
-        Uses lazy import for config to prevent circular dependency issues.
+        Dynamically resolves project root to avoid circular dependencies with config.
         """
+        # Resolve project root relative to: infra/common/logger.py -> ../../../
+        self.project_root: Path = Path(__file__).resolve().parents[2]
+        self.log_file: Path = self.project_root / "data" / "logs" / "infrastructure.log"
 
         try:
-            from config import DATA_DIR
-
-            self.log_file: Path = DATA_DIR / "logs" / "infrastructure.log"
             self.log_file.parent.mkdir(parents=True, exist_ok=True)
-        except (ImportError, AttributeError):
-            # Fallback if config is not yet initialized or during early setup
-            self.log_file = Path("data/logs/infrastructure.log")
+        except OSError:
+            # Fallback for read-only environments or permission issues
+            msg = (
+                f"{self._WARNING}WARNING: Could not create log file at "
+                f"{self.log_file}{self._ENDC}"
+            )
+            print(msg, file=sys.stderr)
 
     @staticmethod
     def _get_timestamp() -> str:

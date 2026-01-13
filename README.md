@@ -19,11 +19,6 @@ a **Single Source of Truth (SSoT)** for machine learning operations, data orches
 
 ## 🏗️ Architecture & Structure
 
-The hub is organized into clear functional layers, ensuring absolute separation of concerns between core
-utilities and experimental research.
-
-## 🏗️ Architecture & Structure
-
 The hub is organized into clear functional layers, ensuring absolute separation of concerns between core utilities
 and experimental research.
 
@@ -42,8 +37,11 @@ performance and IDE discoverability.
 
 ### 🧪 [AI Utilities](infra/ai_utils/README.md)
 
-Managed data acquisition and feature engineering. Supports automated cache invalidation and hybrid Excel
-processing (`.xls` and `.xlsx`).
+A complete toolkit for the ML lifecycle:
+
+- **Ingestor**: Smart loading for CSV, Parquet, and Excel (auto-engine detection).
+- **Processor**: Scikit-learn integration for robust data splitting, scaling, and encoding.
+- **Visualizer**: Production-ready plotting for Regression (Residuals) and Classification (Confusion Matrix).
 
 ### 🔐 Modular Credentials Vault
 
@@ -56,8 +54,11 @@ This isolates sensitive tokens from the data processing layer.
 
 #### ☁️ [Google Drive Service](infra/gdrive/README.md)
 
-A resilient orchestration layer for Cloud Storage, featuring automated OAuth2 flows, prefix-based cleanup,
-and bit-for-bit integrity checks.
+A resilient orchestration layer for Cloud Storage, featuring:
+
+- **Auto-Export**: Converts Google Docs/Sheets/Slides to standard formats (DOCX/XLSX/PPTX).
+- **Headless Mode**: Native support for CI/CD environments without browser interaction.
+- **Resilience**: Automated token refresh and safe pagination logic.
 
 ### 📜 Common Lib
 

@@ -15,9 +15,13 @@ dist/
 .DS_Store
 *.swp
 
+# --- Jupyter Notebooks ---
+.ipynb_checkpoints/
+
 # --- Logs & Environment ---
 *.log
-data/logs/
+data/logs/*
+!data/logs/.gitkeep
 .env
 
 # --- Data & Artifacts ---

@@ -6,6 +6,7 @@ import sys
 from pathlib import Path
 from typing import Any, Final
 
+from google.auth.exceptions import RefreshError
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
@@ -23,10 +24,17 @@ def get_google_service_credentials(
     credentials_path: str | Path,
     token_path: str | Path,
     scopes: list[str] | None = None,
+    headless: bool = False,
 ) -> Credentials:
     """
     Handles the OAuth2 flow and returns valid credentials.
     Standardized for ai-ops-hub headless and local environments.
+
+    Args:
+        credentials_path: Path to client_secret.json
+        token_path: Path to save/load token.json
+        scopes: OAuth scopes
+        headless: If True, disables manual browser interaction (CI/CD mode)
     """
     selected_scopes: Final[list[str]] = scopes or DEFAULT_SCOPES
     creds_file: Final[Path] = Path(credentials_path)
@@ -49,12 +57,23 @@ def get_google_service_credentials(
             logger.info("Access token expired. Refreshing session...")
             try:
                 creds.refresh(Request())
+            except RefreshError:
+                logger.error(
+                    "Token refresh failed (Revoked/Expired). Re-authenticating."
+                )
+                creds = None
             except Exception as e:
-                logger.error("Failed to refresh token", e)
-                creds = None  # Force re-authentication
+                logger.error("Unexpected error during token refresh", e)
+                creds = None
 
         # 3. Manual Authentication Flow (Local Server)
         if not creds or not creds.valid:
+            if headless:
+                logger.error("Headless mode enabled. Cannot perform manual login.")
+                raise PermissionError(
+                    "Authentication required but headless mode is on."
+                )
+
             if not creds_file.exists():
                 error_msg: str = f"Missing client secrets at {creds_file.absolute()}"
                 logger.error(error_msg)

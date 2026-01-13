@@ -11,7 +11,7 @@ from sklearn.preprocessing import StandardScaler
 
 # --- Configuration from SSoT (.env / config.py) ---
 from config import DATA_DIR, MODELS_DIR, PROCESSED_DIR, REPORTS_DIR
-from infra.ai_utils import DataIngestor, DataProcessor, save_regression_plot
+from infra.ai_utils import DataIngestor, DataProcessor, ModelVisualizer
 from infra.common.logger import logger
 from infra.gdrive.service import GDriveService
 
@@ -142,8 +142,7 @@ def run_experiment() -> None:
     y_real: np.ndarray = df_prepared["Price"].values
 
     # 6. Report Generation & Artifact Export
-
-    report_file: str = save_regression_plot(
+    report_file: str = ModelVisualizer.save_regression_plot(
         y_real, y_pred, output_dir=REPORTS_DIR, model_name="car_price_model"
     )
 

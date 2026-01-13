@@ -2,7 +2,7 @@
 
 [![Python 3.13](https://img.shields.io/badge/python-3.13-blue.svg)](https://www.python.org/downloads/release/python-3130/)
 [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
-[![Security: Bandit](https://img.shields.io/badge/security-bandit-yellow.svg)](https://github.com/PyCQA/bandit)
+[![Security: Bandit](https://img.shields.io/badge/security-bandit-gree.svg)](https://github.com/PyCQA/bandit)
 
 A robust infrastructure service for Google Drive API v3, acting as the primary storage orchestration layer
 for the **ai-ops-hub** ecosystem.
@@ -12,13 +12,16 @@ type-safe interface for the entire monorepo.
 
 ## Features
 
-- **Automated OAuth2**: Transparent token management with automatic refresh logic using the
-  centralized `infra/credentials/` vault.
+- **Automated OAuth2**: Transparent token management with automatic refresh logic and **Headless Mode** support for CI/CD.
 - **Hybrid Path Support**: Native compatibility with `pathlib.Path` and standardized strings.
 - **Smart Asset Persistence**: Built-in overwrite logic that preserves File IDs, ensuring consistent
   downstream links for AI models and datasets.
 - **Orchestrated Cleanup**: Methods for prefix-based deletion and permanent folder clearing to maintain cloud hygiene.
-- **Auto-Export Engine**: Automatically converts Google-native formats (Sheets) to Data Science standards (`.xlsx`).
+- **Auto-Export Engine**: Automatically converts Google-native formats to Data Science standards:
+  - Google Sheets -> `.xlsx`
+  - Google Docs -> `.docx`
+  - Google Slides -> `.pptx`
+- **Resilient Pagination**: Safety limits to prevent infinite loops during large file listings.
 
 ## 🔐 Credentials & Security
 
@@ -48,7 +51,7 @@ file_id: str = service.upload_file(
     overwrite=True
 )
 
-# Seamless Download
+# Seamless Download (Auto-converts Google Docs/Sheets)
 service.download_file(
     file_id=file_id,
     local_path=Path("data/raw/cars_dataset.xlsx")
@@ -59,7 +62,7 @@ service.download_file(
 
 Integrity is verified via the [Infrastructure Health System](../../infra/scripts/health_check/README.md).
 
-The `health_check_gdrive.py` module performs:
+The `check_auth.py` script performs:
 
 - Credential file discovery.
 - API reachability smoke tests.
