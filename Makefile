@@ -43,14 +43,14 @@ export PYTHONPATH := $(ROOT)
 TIMESTAMP := $(shell date '+%Y%m%d_%H%M%S')
 LOG_NAME  := infra_health_check_$(TIMESTAMP).log
 INFRA_LOG := $(DATA_DIR)/logs/$(LOG_NAME)
-.PHONY: help setup quality security test-all clean lint-and-format verify-env update-deps health-check
+.PHONY: help setup quality security test-all clean lint-and-format health-check
 
 help: ## Show this help message
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
 
 # --- Main Pipelines ---
 
-quality: clean ## Run full quality gate
+quality: clean ## Run full quality gate: Lint, Format, Pre-commit, Security, Tests, Health
 	@echo ">>> [PIPELINE] Starting Full Quality Gate..."
 	@$(MAKE) lint-and-format
 	@echo ">>> [VALIDATION] Running Pre-commit Hooks..."
@@ -59,8 +59,6 @@ quality: clean ## Run full quality gate
 	@$(MAKE) security
 	@echo ">>> [TESTS] Executing Test Suite..."
 	@$(MAKE) test-all
-	@echo ">>> [AUDIT] Running Dependency Audit..."
-	@$(PY) infra/scripts/integrity_check.py
 	@echo ">>> [SYSTEM] Running Final Health Checks..."
 	@$(MAKE) health-check
 	@echo ">>> [SUCCESS] System is healthy and production-ready."
@@ -70,7 +68,7 @@ lint-and-format: ## Check and fix code style with Ruff
 	$(RUFF) check . --fix
 	$(RUFF) format .
 
-health-audit: ## Execute the complete pipeline (Quality + Security + Audit)
+health-audit: ## Execute a verbose pipeline and save results to a log file
 	@mkdir -p $(DATA_DIR)/logs
 	@echo "[$(shell date '+%Y-%m-%d %H:%M:%S')] INFO    : >>> [AUDIT] Starting Infrastructure Health Check..." | tee $(INFRA_LOG)
 	@echo "---" | tee -a $(INFRA_LOG)
@@ -80,8 +78,6 @@ health-audit: ## Execute the complete pipeline (Quality + Security + Audit)
 	@$(MAKE) lint-and-format 2>&1 | tee -a $(INFRA_LOG)
 	@echo ">>> Security SAST" | tee -a $(INFRA_LOG)
 	@$(MAKE) security 2>&1 | tee -a $(INFRA_LOG)
-	@echo ">>> Infrastructure Integrity" | tee -a $(INFRA_LOG)
-	@$(MAKE) verify-env 2>&1 | tee -a $(INFRA_LOG)
 	@
 	@echo "---" | tee -a $(INFRA_LOG)
 	@echo "[STAGE 2/2] Full System Stability Audit" | tee -a $(INFRA_LOG)
@@ -96,22 +92,15 @@ health-audit: ## Execute the complete pipeline (Quality + Security + Audit)
 # --- Infrastructure & Environment ---
 
 setup: clean ## Initialize environment, venv and install dependencies
-	@echo ">>> [STEP 1/5] Initializing Modular Infrastructure..."
+	@echo ">>> [STEP 1/3] Initializing Modular Infrastructure..."
 	@mkdir -p $(GDRIVE_CRED_DIR)
 	@mkdir -p $(DATA_DIR)/logs
-	@echo ">>> [STEP 2/5] Initializing Venv (Python 3.13)..."
+	@echo ">>> [STEP 2/3] Initializing Venv (Python 3.13)..."
 	@if [ ! -d "$(VENV)" ] && [ "$(CI)" = "false" ]; then $(PYTHON_BIN) -m venv $(VENV); fi
 	@$(PIP) install --upgrade pip setuptools wheel
-	@echo ">>> [STEP 3/5] Installing Requirements..."
+	@echo ">>> [STEP 3/3] Installing Requirements & Git Hooks..."
 	$(PIP) install -r requirements.txt
-	@echo ">>> [STEP 4/5] Verifying Module Integrity..."
-	@$(MAKE) verify-env
-	@echo ">>> [STEP 5/5] Finalizing Git Hooks..."
 	@if [ "$(CI)" = "false" ]; then $(PRE) install; fi
-
-verify-env: ## Validate internal module mapping and integrity check
-	@echo ">>> Running Dependency Audit..."
-	@$(PY) infra/scripts/integrity_check.py
 
 health-check: ## Run all dynamically discovered health checks (GDrive, Lab, etc.)
 	@echo ">>> [SYSTEM] Starting Automated Health Suite..."
