@@ -38,7 +38,7 @@ The service is designed for direct injection into other modules (like `ai_utils`
 ```python
 from pathlib import Path
 from infra.gdrive.service import GDriveService
-from config import REPORTS_DIR
+from infra.common.config import REPORTS_DIR
 
 # Initialize (Automatically resolves credentials from infra/credentials/gdrive/)
 service: GDriveService = GDriveService()
