@@ -24,7 +24,7 @@ Handles the acquisition phase, ensuring that local data is valid before loading.
 
 ```python
 from infra.ai_utils.ingestor import DataIngestor
-from config import RAW_DIR
+from infra.common.config import RAW_DIR
 
 ingestor = DataIngestor()
 
@@ -82,7 +82,7 @@ Generates production-ready performance reports with automated timestamping.
 ```python
 import numpy as np
 from infra.ai_utils.visualizer import ModelVisualizer
-from config import REPORTS_DIR
+from infra.common.config import REPORTS_DIR
 
 # 1. Regression Analysis
 ModelVisualizer.save_regression_plot(

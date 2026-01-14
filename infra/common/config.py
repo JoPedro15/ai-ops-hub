@@ -11,7 +11,8 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # --- Project Root & Base Paths ---
-ROOT_DIR: Final[Path] = Path(__file__).parent.resolve()
+# Adjusted for location: infra/common/config.py -> ../../ (Root)
+ROOT_DIR: Final[Path] = Path(__file__).resolve().parents[2]
 DATA_DIR: Final[Path] = ROOT_DIR / "data"
 INFRA_DIR: Final[Path] = ROOT_DIR / "infra"
 DOCS_DIR: Final[Path] = ROOT_DIR / "docs"

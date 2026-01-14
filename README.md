@@ -63,7 +63,7 @@ A resilient orchestration layer for Cloud Storage, featuring:
 ### 📜 Common Lib
 
 Home of our **Standardized Logger**. Enforces the project-wide **Zero-Print Policy** with ANSI-colored terminal
-output and local file persistence.
+output.
 
 ## 🛠️ Global Quality Gate (GNU Make)
 

@@ -8,7 +8,7 @@ from typing import Final
 # Setup path for root access
 sys.path.append(str(Path(__file__).parents[3]))
 
-from config import (
+from infra.common.config import (
     CREDS_PATH_GDRIVE,
     DATA_DIR,
     OUTPUT_FOLDER_ID,
@@ -16,7 +16,6 @@ from config import (
     RAW_DIR,
     REPORTS_DIR,
 )
-
 from infra.common.logger import logger
 from infra.gdrive.service import GDriveService
 

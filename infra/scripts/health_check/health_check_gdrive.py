@@ -1,7 +1,7 @@
 from pathlib import Path
 from typing import Final
 
-from config import (
+from infra.common.config import (
     CREDS_PATH_GDRIVE,
     GDRIVE_AILAB_FOLDER_ID,
     GDRIVE_DATA_FOLDER_ID,

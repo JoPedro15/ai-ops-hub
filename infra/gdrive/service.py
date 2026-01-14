@@ -6,11 +6,11 @@ import os
 from pathlib import Path
 from typing import Any, Final
 
-# Centralized imports from root config
-from config import CREDS_PATH_GDRIVE, OUTPUT_FOLDER_ID, TOKEN_PATH_GDRIVE
 from googleapiclient.discovery import Resource, build
 from googleapiclient.http import MediaFileUpload, MediaIoBaseDownload
 
+# Centralized imports from root config
+from infra.common.config import CREDS_PATH_GDRIVE, OUTPUT_FOLDER_ID, TOKEN_PATH_GDRIVE
 from infra.common.logger import logger
 
 # Modular internal imports

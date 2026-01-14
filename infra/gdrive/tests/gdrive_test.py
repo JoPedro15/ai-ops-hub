@@ -6,10 +6,10 @@ from pathlib import Path
 from typing import Final
 
 import pytest
+from dotenv import load_dotenv
 
 # Centralized configuration and tools
-from config import CREDS_PATH_GDRIVE, DATA_DIR, OUTPUT_FOLDER_ID
-from dotenv import load_dotenv
+from infra.common.config import CREDS_PATH_GDRIVE, DATA_DIR, OUTPUT_FOLDER_ID
 from infra.common.logger import logger
 from infra.gdrive.service import GDriveService
 
