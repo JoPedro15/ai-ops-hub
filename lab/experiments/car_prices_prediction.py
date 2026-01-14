@@ -6,24 +6,27 @@ import joblib
 import numpy as np
 import pandas as pd
 import statsmodels.api as sm
-from dotenv import load_dotenv
 
 from infra.ai_utils import DataIngestor, DataProcessor, ModelVisualizer
+from infra.common import logger
 
 # --- Configuration from SSoT (.env / config.py) ---
-from infra.common.config import DATA_DIR, MODELS_DIR, PROCESSED_DIR, REPORTS_DIR
-from infra.common.logger import logger
+from infra.common.config import (
+    DATA_DIR,
+    GDRIVE_DATA_PROCESSED_FOLDER_ID,
+    GDRIVE_MODELS_DEV_FOLDER_ID,
+    GDRIVE_MODELS_PROD_FOLDER_ID,
+    MODELS_DIR,
+    PROCESSED_DIR,
+    REPORTS_DIR,
+)
 from infra.gdrive.service import GDriveService
-
-# 1. Environment Orchestration
-load_dotenv()
-
 
 # GDrive IDs
 GDRIVE_FILE_ID: Final[str | None] = os.getenv("CAR_DATA_FILE_ID")
-GDRIVE_PROC_DATA_ID: Final[str | None] = os.getenv("GDRIVE_DATA_PROCESSED_FOLDER_ID")
-GDRIVE_MODELS_PROD_ID: Final[str | None] = os.getenv("GDRIVE_MODELS_PROD_FOLDER_ID")
-GDRIVE_MODELS_DEV_ID: Final[str | None] = os.getenv("GDRIVE_MODELS_DEV_FOLDER_ID")
+GDRIVE_PROC_DATA_ID: Final[str | None] = GDRIVE_DATA_PROCESSED_FOLDER_ID
+GDRIVE_MODELS_PROD_ID: Final[str | None] = GDRIVE_MODELS_PROD_FOLDER_ID
+GDRIVE_MODELS_DEV_ID: Final[str | None] = GDRIVE_MODELS_DEV_FOLDER_ID
 
 
 def train_linear_model(X: pd.DataFrame, y: pd.Series) -> Any:

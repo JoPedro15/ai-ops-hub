@@ -1,5 +1,10 @@
+import sys
 from pathlib import Path
 from typing import Final
+
+# Ensure root is in path if run directly
+if __name__ == "__main__":
+    sys.path.append(str(Path(__file__).parents[3]))
 
 from infra.common.config import (
     CREDS_PATH_GDRIVE,
@@ -23,6 +28,7 @@ def verify_gdrive_connectivity() -> bool:
     """
     Performs a deep diagnostic for Google Drive integration.
     Validates credentials, folder IDs, and write permissions.
+    Can be run manually to force authentication.
     """
     logger.subsection("Starting GDrive Connectivity Diagnostics...")
 
@@ -32,6 +38,7 @@ def verify_gdrive_connectivity() -> bool:
         return False
 
     try:
+        # This instantiation triggers the OAuth flow if token is missing/expired
         service: GDriveService = GDriveService()
         logger.success("GDrive Service: Instantiated successfully.")
 
@@ -88,8 +95,20 @@ def verify_gdrive_connectivity() -> bool:
         error_msg: str = str(e).lower()
         if any(key in error_msg for key in ["refresh_token", "invalid_grant"]):
             logger.error("GDrive Auth: Token invalid. Manual re-auth required.")
+            logger.warning("Run this script manually to re-authenticate.")
         elif any(key in error_msg for key in ["unreachable", "connection"]):
             logger.error("GDrive Network: API unreachable. Check internet connection.")
         else:
             logger.error(f"GDrive Unexpected Failure: {str(e)}")
+            if "non-interactive" in error_msg:
+                logger.warning(
+                    "Hint: Run this script manually in a terminal to authenticate."
+                )
         return False
+
+
+if __name__ == "__main__":
+    if verify_gdrive_connectivity():
+        sys.exit(0)
+    else:
+        sys.exit(1)
