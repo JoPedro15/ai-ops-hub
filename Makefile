@@ -31,19 +31,21 @@ ifeq ($(CI), true)
     PRE     := pre-commit
     PYTEST  := pytest
     AUDIT   := pip-audit
+    SECRETS := detect-secrets
 else
     BIN     := $(ROOT)/$(VENV)/bin/
     RUFF    := $(BIN)ruff
     PRE     := $(BIN)pre-commit
     PYTEST  := $(BIN)pytest
     AUDIT   := $(BIN)pip-audit
+    SECRETS := $(BIN)detect-secrets
 endif
 
 export PYTHONPATH := $(ROOT)
 TIMESTAMP := $(shell date '+%Y%m%d_%H%M%S')
 LOG_NAME  := infra_health_check_$(TIMESTAMP).log
 INFRA_LOG := $(DATA_DIR)/logs/$(LOG_NAME)
-.PHONY: help setup quality security test-all clean lint-and-format health-check pre-commit
+.PHONY: help setup quality security test-all clean lint-and-format health-check pre-commit secrets-update
 
 help: ## Show this help message
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
@@ -117,6 +119,10 @@ security: ## Run dependency audit for known vulnerabilities (CVEs)
 	@echo ">>> [SECURITY] Running Dependency Audit on requirements.txt..."
 	# Pointing directly to the file prevents scanning corrupted local metadata
 	$(AUDIT) -r requirements.txt --ignore-vuln CVE-2025-53000
+
+secrets-update: ## Update secrets baseline (Manual Audit Required!)
+	$(SECRETS) scan --exclude-files '.venv/.*' > .secrets.baseline
+	@echo ">>> Baseline updated. Please run 'detect-secrets audit .secrets.baseline' to verify."
 
 test-all: ## Run the complete pytest suite
 	@echo ">>> Running Pytest suite..."
